@@ -1,5 +1,13 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, type User as FirebaseUser } from 'firebase/auth';
+import {
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
+  GoogleAuthProvider,
+  signInWithPopup,
+  type User as FirebaseUser,
+} from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 import type { User, RegisterFormData } from '../types/auth';
@@ -8,6 +16,7 @@ interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   login: (email: string, password: string, remember: boolean) => Promise<void>;
+  loginWithGoogle: (remember?: boolean) => Promise<void>;
   register: (data: RegisterFormData) => Promise<void>;
   logout: () => void;
 }
@@ -16,18 +25,28 @@ const AuthContext = createContext<AuthContextType | null>(null);
 
 const STORAGE_KEY = 'at_users';
 const SESSION_KEY = 'at_session';
+const googleProvider = new GoogleAuthProvider();
+googleProvider.setCustomParameters({ prompt: 'select_account' });
 
-function normalizeUser(user: FirebaseUser | null, fallback?: Partial<User>): User | null {
-  if (!user) return null;
-  const base: User = {
-    id: user.uid,
-    fullName: fallback?.fullName || user.displayName || user.email?.split('@')[0] || 'Usuário',
-    email: user.email || '',
-    cpf: fallback?.cpf || '',
-    phone: fallback?.phone || '',
-    createdAt: fallback?.createdAt || new Date().toISOString(),
+async function syncUserProfile(firebaseUser: FirebaseUser, fallback?: Partial<User>): Promise<User> {
+  const docRef = doc(db, 'users', firebaseUser.uid);
+  const snap = await getDoc(docRef);
+  const existing = snap.exists() ? (snap.data() as Partial<User>) : undefined;
+
+  const profile: User = {
+    id: firebaseUser.uid,
+    fullName: fallback?.fullName || existing?.fullName || firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Usuário',
+    email: firebaseUser.email || existing?.email || '',
+    cpf: fallback?.cpf || existing?.cpf || '',
+    phone: fallback?.phone || existing?.phone || '',
+    createdAt: fallback?.createdAt || existing?.createdAt || new Date().toISOString(),
   };
-  return base;
+
+  if (!snap.exists()) {
+    await setDoc(docRef, profile);
+  }
+
+  return profile;
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -43,10 +62,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      const docRef = doc(db, 'users', firebaseUser.uid);
-      const snap = await getDoc(docRef);
-      const profile = snap.exists() ? (snap.data() as Partial<User>) : undefined;
-      const mappedUser = normalizeUser(firebaseUser, profile);
+      const mappedUser = await syncUserProfile(firebaseUser);
       setUser(mappedUser);
 
       const storage = localStorage.getItem(SESSION_KEY) ? localStorage : sessionStorage;
@@ -68,10 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string, remember: boolean) => {
     try {
       const cred = await signInWithEmailAndPassword(auth, email, password);
-      const docRef = doc(db, 'users', cred.user.uid);
-      const snap = await getDoc(docRef);
-      const profile = snap.exists() ? (snap.data() as Partial<User>) : undefined;
-      const safeUser = normalizeUser(cred.user, profile);
+      const safeUser = await syncUserProfile(cred.user);
       setUser(safeUser);
       const storage = remember ? localStorage : sessionStorage;
       storage.setItem(SESSION_KEY, JSON.stringify(safeUser));
@@ -86,6 +99,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(safeUser);
       const storage = remember ? localStorage : sessionStorage;
       storage.setItem(SESSION_KEY, JSON.stringify(safeUser));
+    }
+  };
+
+  const loginWithGoogle = async (remember = true) => {
+    try {
+      const cred = await signInWithPopup(auth, googleProvider);
+      const safeUser = await syncUserProfile(cred.user);
+      setUser(safeUser);
+      const storage = remember ? localStorage : sessionStorage;
+      storage.setItem(SESSION_KEY, JSON.stringify(safeUser));
+    } catch {
+      throw new Error('Não foi possível entrar com o Google. Tente novamente.');
     }
   };
 
@@ -141,7 +166,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, login, register, logout }}>
+    <AuthContext.Provider value={{ user, isAuthenticated: !!user, login, loginWithGoogle, register, logout }}>
       {children}
     </AuthContext.Provider>
   );
