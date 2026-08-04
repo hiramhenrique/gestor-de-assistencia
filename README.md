@@ -30,3 +30,27 @@ If you are developing a production application, we recommend enabling type-aware
 ```
 
 See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+
+## Deploy Automatico no Vercel via GitHub
+
+Este repositorio esta configurado para fazer push automatico a cada commit local.
+Com isso, sempre que houver commit no branch conectado ao Vercel, um novo deploy e disparado automaticamente.
+
+### Como funciona
+
+- Hook local: `.githooks/post-commit`
+- Acao: executa `git push` ao finalizar cada commit
+- Efeito no Vercel: novo deploy quando o push chegar no GitHub
+
+### Desativar temporariamente
+
+Para pular o push automatico em um commit especifico:
+
+```bash
+SKIP_AUTO_PUSH=1 git commit -m "sua mensagem"
+```
+
+### Observacoes
+
+- Se o branch ainda nao tiver upstream, o hook avisa e nao tenta forcar push.
+- O Vercel precisa estar integrado ao repositorio GitHub e ao branch correto (ex.: `main`).

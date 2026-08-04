@@ -1,4 +1,4 @@
-import { Bell, Search, User, LogOut } from 'lucide-react';
+import { User, LogOut } from 'lucide-react';
 import ThemeToggle from '../ThemeToggle';
 import type { ModuleId } from '../../types/app';
 
@@ -31,22 +31,6 @@ export default function AppHeader({ active, userName, onLogout }: AppHeaderProps
           {PAGE_TITLES[active]}
         </h1>
       </div>
-
-      {/* Busca */}
-      <div className="relative hidden sm:block">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-        <input
-          type="text"
-          placeholder="Buscar..."
-          className="pl-9 pr-4 py-1.5 text-sm bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg border border-transparent focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-500 w-48 placeholder:text-gray-400 transition-all"
-        />
-      </div>
-
-      {/* Notificações */}
-      <button className="relative p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
-        <Bell className="w-5 h-5" />
-        <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-violet-500" />
-      </button>
 
       {/* Dark mode toggle */}
       <div className="relative">

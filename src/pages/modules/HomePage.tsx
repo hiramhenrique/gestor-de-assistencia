@@ -1,9 +1,10 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   ClipboardList, Users, Activity, Package,
   TrendingUp, TrendingDown, Clock, CheckCircle2,
   AlertCircle, ArrowRight, XCircle,
 } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
 import type { ModuleId } from '../../types/app';
 import { loadClients, type ClientRecord } from './clientsData';
 import { loadOrders, type ServiceOrder } from './ordersData';
@@ -62,10 +63,19 @@ function getStatusColor(status: ServiceOrder['status']) {
 }
 
 export default function HomePage({ onNavigate, userName }: HomePageProps) {
+  const { user } = useAuth();
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite';
-  const [orders] = useState<ServiceOrder[]>(() => loadOrders());
-  const [clients] = useState<ClientRecord[]>(() => loadClients());
+  const [orders, setOrders] = useState<ServiceOrder[]>([]);
+  const [clients, setClients] = useState<ClientRecord[]>([]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    Promise.all([loadOrders(user.id), loadClients(user.id)]).then(([nextOrders, nextClients]) => {
+      setOrders(nextOrders);
+      setClients(nextClients);
+    });
+  }, [user?.id]);
 
   const metrics = useMemo(() => {
     const now = new Date();

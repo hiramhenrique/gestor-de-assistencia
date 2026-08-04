@@ -6,9 +6,12 @@ import {
   onAuthStateChanged,
   GoogleAuthProvider,
   signInWithPopup,
+  signInWithRedirect,
+  inMemoryPersistence,
+  setPersistence,
   type User as FirebaseUser,
 } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, limit, query, setDoc, where } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 import type { User, RegisterFormData } from '../types/auth';
 
@@ -23,10 +26,35 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-const STORAGE_KEY = 'at_users';
-const SESSION_KEY = 'at_session';
 const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
+
+function getAuthErrorCode(error: unknown): string {
+  if (typeof error === 'object' && error !== null && 'code' in error) {
+    const code = (error as { code?: string }).code;
+    return code || '';
+  }
+  return '';
+}
+
+function getGoogleLoginErrorMessage(code: string): string {
+  switch (code) {
+    case 'auth/unauthorized-domain':
+      return 'Este domínio não está autorizado no Firebase Auth. Adicione o domínio em Authentication > Settings > Authorized domains.';
+    case 'auth/operation-not-allowed':
+      return 'Login com Google desativado no Firebase. Ative o provedor Google em Authentication > Sign-in method.';
+    case 'auth/popup-blocked':
+      return 'O navegador bloqueou a janela de login. Permita pop-ups e tente novamente.';
+    case 'auth/network-request-failed':
+      return 'Falha de rede ao autenticar com Google. Verifique sua conexão e tente novamente.';
+    case 'auth/invalid-api-key':
+      return 'A chave da API do Firebase está inválida. Verifique o arquivo .env.local.';
+    default:
+      return code
+        ? `Não foi possível entrar com o Google (${code}).`
+        : 'Não foi possível entrar com o Google. Tente novamente.';
+  }
+}
 
 async function syncUserProfile(firebaseUser: FirebaseUser, fallback?: Partial<User>): Promise<User> {
   const docRef = doc(db, 'users', firebaseUser.uid);
@@ -49,11 +77,20 @@ async function syncUserProfile(firebaseUser: FirebaseUser, fallback?: Partial<Us
   return profile;
 }
 
+async function hasCpfRegistered(cpf: string): Promise<boolean> {
+  if (!cpf) return false;
+  const usersRef = collection(db, 'users');
+  const cpfQuery = query(usersRef, where('cpf', '==', cpf), limit(1));
+  const snapshot = await getDocs(cpfQuery);
+  return !snapshot.empty;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(() => {
-    const session = sessionStorage.getItem(SESSION_KEY) || localStorage.getItem(SESSION_KEY);
-    return session ? JSON.parse(session) : null;
-  });
+  const [user, setUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    void setPersistence(auth, inMemoryPersistence);
+  }, []);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -64,63 +101,56 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const mappedUser = await syncUserProfile(firebaseUser);
       setUser(mappedUser);
-
-      const storage = localStorage.getItem(SESSION_KEY) ? localStorage : sessionStorage;
-      storage.setItem(SESSION_KEY, JSON.stringify(mappedUser));
     });
 
     return () => unsubscribe();
   }, []);
 
-  const getUsers = (): Array<User & { password: string }> => {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  };
-
-  const saveUsers = (users: Array<User & { password: string }>) => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(users));
-  };
-
   const login = async (email: string, password: string, remember: boolean) => {
+    void remember;
     try {
       const cred = await signInWithEmailAndPassword(auth, email, password);
       const safeUser = await syncUserProfile(cred.user);
       setUser(safeUser);
-      const storage = remember ? localStorage : sessionStorage;
-      storage.setItem(SESSION_KEY, JSON.stringify(safeUser));
       return;
-    } catch (error) {
-      const fallbackUsers = getUsers();
-      const found = fallbackUsers.find((u) => u.email.toLowerCase() === email.toLowerCase() && u.password === password);
-      if (!found) {
+    } catch (error: unknown) {
+      const code = getAuthErrorCode(error);
+      if (code === 'auth/invalid-credential' || code === 'auth/user-not-found' || code === 'auth/wrong-password') {
         throw new Error('E-mail ou senha inválidos.');
       }
-      const { password: _pw, ...safeUser } = found;
-      setUser(safeUser);
-      const storage = remember ? localStorage : sessionStorage;
-      storage.setItem(SESSION_KEY, JSON.stringify(safeUser));
+      throw new Error('Não foi possível entrar. Tente novamente.');
     }
   };
 
   const loginWithGoogle = async (remember = true) => {
+    void remember;
     try {
       const cred = await signInWithPopup(auth, googleProvider);
       const safeUser = await syncUserProfile(cred.user);
       setUser(safeUser);
-      const storage = remember ? localStorage : sessionStorage;
-      storage.setItem(SESSION_KEY, JSON.stringify(safeUser));
-    } catch {
-      throw new Error('Não foi possível entrar com o Google. Tente novamente.');
+    } catch (error) {
+      const code = getAuthErrorCode(error);
+
+      if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
+        return;
+      }
+
+      if (code === 'auth/popup-blocked') {
+        try {
+          await signInWithRedirect(auth, googleProvider);
+          return;
+        } catch {
+          throw new Error(getGoogleLoginErrorMessage(code));
+        }
+      }
+
+      throw new Error(getGoogleLoginErrorMessage(code));
     }
   };
 
   const register = async (data: RegisterFormData) => {
-    const users = getUsers();
-    const exists = users.find((u) => u.email.toLowerCase() === data.email.toLowerCase());
-    if (exists) {
-      throw new Error('Este e-mail já está cadastrado.');
-    }
-    const cpfExists = users.find((u) => u.cpf === data.cpf.replace(/\D/g, ''));
+    const sanitizedCpf = data.cpf.replace(/\D/g, '');
+    const cpfExists = await hasCpfRegistered(sanitizedCpf);
     if (cpfExists) {
       throw new Error('Este CPF já está cadastrado.');
     }
@@ -131,26 +161,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         id: cred.user.uid,
         fullName: data.fullName,
         email: data.email,
-        cpf: data.cpf.replace(/\D/g, ''),
+        cpf: sanitizedCpf,
         phone: data.phone,
         createdAt: new Date().toISOString(),
       };
       await setDoc(doc(db, 'users', cred.user.uid), profile);
       setUser(profile);
-      sessionStorage.setItem(SESSION_KEY, JSON.stringify(profile));
-      localStorage.setItem(SESSION_KEY, JSON.stringify(profile));
       return;
-    } catch (error) {
-      const newUser: User & { password: string } = {
-        id: `user-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-        fullName: data.fullName,
-        email: data.email,
-        cpf: data.cpf.replace(/\D/g, ''),
-        phone: data.phone,
-        createdAt: new Date().toISOString(),
-        password: data.password,
-      };
-      saveUsers([...users, newUser]);
+    } catch (error: unknown) {
+      const code = getAuthErrorCode(error);
+      if (code === 'auth/email-already-in-use') {
+        throw new Error('Este e-mail já está cadastrado.');
+      }
+      throw new Error('Não foi possível cadastrar. Tente novamente.');
     }
   };
 
@@ -161,8 +184,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // ignore
     }
     setUser(null);
-    sessionStorage.removeItem(SESSION_KEY);
-    localStorage.removeItem(SESSION_KEY);
   };
 
   return (

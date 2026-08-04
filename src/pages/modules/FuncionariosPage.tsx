@@ -1,18 +1,28 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { PlusCircle, Search, UserCog } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import Modal from '../../components/ui/Modal';
-import { initialEmployees, type EmployeeRecord } from './employeesData';
+import { useAuth } from '../../contexts/AuthContext';
+import { initialEmployees, loadEmployees, saveEmployees, type EmployeeRecord } from './employeesData';
 
 export default function FuncionariosPage() {
+  const { user } = useAuth();
   const [employees, setEmployees] = useState(initialEmployees);
   const [query, setQuery] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
-  const [selectedId, setSelectedId] = useState<string | null>(initialEmployees[0]?.id ?? null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState({ name: '', role: '', phone: '', email: '' });
+
+  useEffect(() => {
+    if (!user?.id) return;
+    loadEmployees(user.id).then((items) => {
+      setEmployees(items);
+      setSelectedId((current) => current ?? items[0]?.id ?? null);
+    });
+  }, [user?.id]);
 
   const filteredEmployees = useMemo(() => {
     const search = query.trim().toLowerCase();
@@ -22,7 +32,7 @@ export default function FuncionariosPage() {
 
   const selectedEmployee = filteredEmployees.find((employee) => employee.id === selectedId) ?? filteredEmployees[0] ?? null;
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (isEditing && selectedEmployee) {
       const updated = employees.map((employee) =>
         employee.id === selectedEmployee.id
@@ -30,6 +40,7 @@ export default function FuncionariosPage() {
           : employee
       );
       setEmployees(updated);
+      await saveEmployees(user?.id, updated);
     } else {
       const newEmployee: EmployeeRecord = {
         id: `FUN-${String(employees.length + 1).padStart(3, '0')}`,
@@ -38,7 +49,11 @@ export default function FuncionariosPage() {
         phone: draft.phone || 'Não informado',
         email: draft.email || 'Não informado',
       };
-      setEmployees((current) => [newEmployee, ...current]);
+      setEmployees((current) => {
+        const next = [newEmployee, ...current];
+        void saveEmployees(user?.id, next);
+        return next;
+      });
       setSelectedId(newEmployee.id);
     }
 
@@ -47,9 +62,13 @@ export default function FuncionariosPage() {
     setIsEditing(false);
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!selectedEmployee) return;
-    setEmployees((current) => current.filter((employee) => employee.id !== selectedEmployee.id));
+    setEmployees((current) => {
+      const next = current.filter((employee) => employee.id !== selectedEmployee.id);
+      void saveEmployees(user?.id, next);
+      return next;
+    });
     setSelectedId(null);
     setConfirmDelete(false);
   };
@@ -109,13 +128,8 @@ export default function FuncionariosPage() {
           <div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700">
             <div className="divide-y divide-gray-200 dark:divide-gray-700">
               {filteredEmployees.map((employee) => (
-                <div key={employee.id} className={`grid grid-cols-[1.8fr,1fr,1fr,0.8fr] items-center gap-3 px-4 py-4 ${selectedEmployee?.id === employee.id ? 'bg-violet-50 dark:bg-violet-900/20' : 'bg-white dark:bg-gray-900'}`}>
-                  <div>
-                    <p className="font-semibold text-gray-900 dark:text-gray-100">{employee.name}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{employee.id}</p>
-                  </div>
-                  <span className="text-sm text-gray-700 dark:text-gray-300">{employee.role}</span>
-                  <span className="text-sm text-gray-700 dark:text-gray-300">{employee.phone}</span>
+                <div key={employee.id} className={`grid grid-cols-[1fr,auto] items-center gap-3 px-4 py-4 ${selectedEmployee?.id === employee.id ? 'bg-violet-50 dark:bg-violet-900/20' : 'bg-white dark:bg-gray-900'}`}>
+                  <p className="font-semibold text-gray-900 dark:text-gray-100">{employee.name}</p>
                   <div className="flex items-center justify-end gap-2">
                     <Button variant="secondary" onClick={() => openPreview(employee)} className="px-3 py-1 text-xs">Visualizar</Button>
                     <Button variant="secondary" onClick={() => openEdit(employee)} className="px-3 py-1 text-xs">Editar</Button>

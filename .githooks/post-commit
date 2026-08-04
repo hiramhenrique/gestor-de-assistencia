@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ "${SKIP_AUTO_PUSH:-}" == "1" ]]; then
+  echo "[auto-push] SKIP_AUTO_PUSH=1, push automático ignorado."
+  exit 0
+fi
+
+branch="$(git rev-parse --abbrev-ref HEAD)"
+
+if [[ "$branch" == "HEAD" ]]; then
+  echo "[auto-push] HEAD destacado, sem push automático."
+  exit 0
+fi
+
+if ! git config --get "branch.$branch.remote" >/dev/null; then
+  echo "[auto-push] Branch '$branch' sem upstream. Rode: git push -u origin $branch"
+  exit 0
+fi
+
+echo "[auto-push] Enviando commit para o remoto..."
+git push

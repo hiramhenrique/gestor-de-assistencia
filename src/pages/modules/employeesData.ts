@@ -6,39 +6,16 @@ export interface EmployeeRecord {
   email: string;
 }
 
-const EMPLOYEES_STORAGE_KEY = 'assistencia_employees';
+import { loadUserCollection, saveUserCollection } from '../../lib/userData';
 
-export const initialEmployees: EmployeeRecord[] = [
-  {
-    id: 'FUN-001',
-    name: 'Renato',
-    role: 'Técnico Sênior',
-    phone: '(11) 98888-3344',
-    email: 'renato@assistencia.com',
-  },
-  {
-    id: 'FUN-002',
-    name: 'Ana',
-    role: 'Técnica Mobile',
-    phone: '(21) 97777-6677',
-    email: 'ana@assistencia.com',
-  },
-];
+export const initialEmployees: EmployeeRecord[] = [];
 
-export function loadEmployees(): EmployeeRecord[] {
-  if (typeof window === 'undefined') return initialEmployees;
-  const raw = window.localStorage.getItem(EMPLOYEES_STORAGE_KEY);
-  if (!raw) return initialEmployees;
-  try {
-    const parsed = JSON.parse(raw) as EmployeeRecord[];
-    return parsed.length ? parsed : initialEmployees;
-  } catch {
-    return initialEmployees;
-  }
+export async function loadEmployees(userId?: string): Promise<EmployeeRecord[]> {
+  if (!userId) return initialEmployees;
+  return loadUserCollection<EmployeeRecord>(userId, 'funcionarios');
 }
 
-export function saveEmployees(employees: EmployeeRecord[]) {
-  if (typeof window !== 'undefined') {
-    window.localStorage.setItem(EMPLOYEES_STORAGE_KEY, JSON.stringify(employees));
-  }
+export async function saveEmployees(userId: string | undefined, employees: EmployeeRecord[]) {
+  if (!userId) return;
+  return saveUserCollection(userId, 'funcionarios', employees);
 }

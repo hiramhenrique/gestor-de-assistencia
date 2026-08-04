@@ -1,18 +1,28 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { PlusCircle, Search, Users, Eye } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import Modal from '../../components/ui/Modal';
+import { useAuth } from '../../contexts/AuthContext';
 import { loadClients, saveClients, type ClientRecord } from './clientsData';
 
 export default function ClientesPage() {
-  const [clients, setClients] = useState<ClientRecord[]>(() => loadClients());
+  const { user } = useAuth();
+  const [clients, setClients] = useState<ClientRecord[]>([]);
   const [query, setQuery] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [selectedId, setSelectedId] = useState<string | null>(loadClients()[0]?.id ?? null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [draft, setDraft] = useState({ name: '', phone: '', email: '', cpf: '', address: '', notes: '' });
+
+  useEffect(() => {
+    if (!user?.id) return;
+    loadClients(user.id).then((items) => {
+      setClients(items);
+      setSelectedId((current) => current ?? items[0]?.id ?? null);
+    });
+  }, [user?.id]);
 
   const filteredClients = useMemo(() => {
     const search = query.trim().toLowerCase();
@@ -22,7 +32,7 @@ export default function ClientesPage() {
 
   const selectedClient = filteredClients.find((client) => client.id === selectedId) ?? filteredClients[0] ?? null;
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (isEditing && selectedClient) {
       const updatedClients = clients.map((client) =>
         client.id === selectedClient.id
@@ -38,7 +48,7 @@ export default function ClientesPage() {
           : client
       );
       setClients(updatedClients);
-      saveClients(updatedClients);
+      await saveClients(user?.id, updatedClients);
       setSelectedId(selectedClient.id);
     } else {
       const newClient: ClientRecord = {
@@ -52,7 +62,7 @@ export default function ClientesPage() {
       };
       setClients((current) => {
         const next = [newClient, ...current];
-        saveClients(next);
+        void saveClients(user?.id, next);
         return next;
       });
       setSelectedId(newClient.id);
@@ -63,11 +73,11 @@ export default function ClientesPage() {
     setIsEditing(false);
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!selectedClient) return;
     const next = clients.filter((client) => client.id !== selectedClient.id);
     setClients(next);
-    saveClients(next);
+    await saveClients(user?.id, next);
     setSelectedId(null);
     setConfirmDelete(false);
   };
