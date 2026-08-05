@@ -30,6 +30,14 @@ function getAuthErrorCode(error: unknown): string {
   return '';
 }
 
+function getAuthErrorMessage(error: unknown): string {
+  if (typeof error === 'object' && error !== null && 'message' in error) {
+    const message = (error as { message?: string }).message;
+    return message || '';
+  }
+  return '';
+}
+
 async function syncUserProfile(firebaseUser: FirebaseUser, fallback?: Partial<User>): Promise<User> {
   const docRef = doc(db, 'users', firebaseUser.uid);
   const snap = await getDoc(docRef);
@@ -89,10 +97,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     } catch (error: unknown) {
       const code = getAuthErrorCode(error);
+      const rawMessage = getAuthErrorMessage(error);
+
       if (code === 'auth/invalid-credential' || code === 'auth/user-not-found' || code === 'auth/wrong-password') {
         throw new Error('E-mail ou senha inválidos.');
       }
-      throw new Error('Não foi possível entrar. Tente novamente.');
+      if (code === 'auth/operation-not-allowed') {
+        throw new Error('Login com e-mail/senha está desativado no Firebase. Ative em Authentication > Sign-in method.');
+      }
+      if (code === 'auth/invalid-api-key') {
+        throw new Error('Configuração Firebase inválida no ambiente. Verifique as variáveis VITE_FIREBASE_* no Vercel.');
+      }
+      if (code === 'auth/too-many-requests') {
+        throw new Error('Muitas tentativas de login. Aguarde alguns minutos e tente novamente.');
+      }
+
+      console.error('Erro de login Firebase:', { code, rawMessage, error });
+      throw new Error(code ? `Não foi possível entrar (${code}).` : 'Não foi possível entrar. Tente novamente.');
     }
   };
 
@@ -121,7 +142,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (code === 'auth/email-already-in-use') {
         throw new Error('Este e-mail já está cadastrado.');
       }
-      throw new Error('Não foi possível cadastrar. Tente novamente.');
+      if (code === 'auth/operation-not-allowed') {
+        throw new Error('Cadastro por e-mail/senha está desativado no Firebase. Ative em Authentication > Sign-in method.');
+      }
+      if (code === 'auth/invalid-api-key') {
+        throw new Error('Configuração Firebase inválida no ambiente. Verifique as variáveis VITE_FIREBASE_* no Vercel.');
+      }
+      if (code === 'auth/weak-password') {
+        throw new Error('A senha é muito fraca. Use pelo menos 6 caracteres.');
+      }
+
+      const rawMessage = getAuthErrorMessage(error);
+      console.error('Erro de cadastro Firebase:', { code, rawMessage, error });
+      throw new Error(code ? `Não foi possível cadastrar (${code}).` : 'Não foi possível cadastrar. Tente novamente.');
     }
   };
 
