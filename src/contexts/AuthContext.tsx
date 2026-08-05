@@ -37,6 +37,14 @@ function getAuthErrorCode(error: unknown): string {
   return '';
 }
 
+function getErrorMessage(error: unknown): string {
+  if (typeof error === 'object' && error !== null && 'message' in error) {
+    const message = (error as { message?: string }).message;
+    return message || '';
+  }
+  return '';
+}
+
 function getGoogleLoginErrorMessage(code: string): string {
   switch (code) {
     case 'auth/unauthorized-domain':
@@ -130,18 +138,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(safeUser);
     } catch (error) {
       const code = getAuthErrorCode(error);
+      const rawMessage = getErrorMessage(error);
 
       if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
         return;
       }
 
-      if (code === 'auth/popup-blocked') {
+      if (code === 'auth/popup-blocked' || (!code && import.meta.env.PROD)) {
         try {
           await signInWithRedirect(auth, googleProvider);
           return;
         } catch {
           throw new Error(getGoogleLoginErrorMessage(code));
         }
+      }
+
+      if (!code && rawMessage) {
+        console.error('Google login failed without Firebase Auth code:', error);
+        throw new Error(`Não foi possível entrar com o Google. Detalhe: ${rawMessage}`);
       }
 
       throw new Error(getGoogleLoginErrorMessage(code));
