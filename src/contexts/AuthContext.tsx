@@ -61,10 +61,23 @@ async function syncUserProfile(firebaseUser: FirebaseUser, fallback?: Partial<Us
 
 async function hasCpfRegistered(cpf: string): Promise<boolean> {
   if (!cpf) return false;
-  const usersRef = collection(db, 'users');
-  const cpfQuery = query(usersRef, where('cpf', '==', cpf), limit(1));
-  const snapshot = await getDocs(cpfQuery);
-  return !snapshot.empty;
+  try {
+    const usersRef = collection(db, 'users');
+    const cpfQuery = query(usersRef, where('cpf', '==', cpf), limit(1));
+    const snapshot = await getDocs(cpfQuery);
+    return !snapshot.empty;
+  } catch (error: unknown) {
+    const code = getAuthErrorCode(error);
+
+    // Em produção, as regras podem bloquear leitura global de users.
+    // Nesse caso, não impedimos o cadastro do usuário autenticável.
+    if (code === 'permission-denied' || code === 'auth/permission-denied') {
+      console.warn('Leitura global de CPF bloqueada pelas regras do Firestore. Seguindo cadastro sem validação global.', error);
+      return false;
+    }
+
+    throw error;
+  }
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -141,6 +154,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const code = getAuthErrorCode(error);
       if (code === 'auth/email-already-in-use') {
         throw new Error('Este e-mail já está cadastrado.');
+      }
+      if (code === 'permission-denied' || code === 'auth/permission-denied') {
+        throw new Error('Permissões do Firestore bloquearam o cadastro. Revise as regras de security para a coleção users.');
       }
       if (code === 'auth/operation-not-allowed') {
         throw new Error('Cadastro por e-mail/senha está desativado no Firebase. Ative em Authentication > Sign-in method.');
