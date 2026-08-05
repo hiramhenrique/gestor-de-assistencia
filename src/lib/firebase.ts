@@ -2,10 +2,13 @@ import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';
 import { getAuth, connectAuthEmulator, type Auth } from 'firebase/auth';
 import { getFirestore, connectFirestoreEmulator, type Firestore } from 'firebase/firestore';
 
+const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID || 'assistencia-tecnica-demo';
+const resolvedAuthDomain = import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || `${projectId}.firebaseapp.com`;
+
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || 'demo-key',
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || 'assistencia-tecnica-demo.firebaseapp.com',
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || 'assistencia-tecnica-demo',
+  authDomain: resolvedAuthDomain,
+  projectId,
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || 'assistencia-tecnica-demo.firebasestorage.app',
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '000000000000',
   appId: import.meta.env.VITE_FIREBASE_APP_ID || '1:000000000000:web:demo',

@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import {
   ClipboardList,
   FileText,
@@ -13,6 +13,7 @@ import {
 import Button from '../../components/ui/Button';
 import Modal from '../../components/ui/Modal';
 import type { ModuleId } from '../../types/app';
+import { useAuth } from '../../contexts/AuthContext';
 import { loadOrders, saveOrders, type OrderPriority, type OrderStatus, type ServiceOrder } from './ordersData';
 import { loadClients, type ClientRecord } from './clientsData';
 import { loadEmployees, type EmployeeRecord } from './employeesData';
@@ -50,9 +51,10 @@ interface OrdensPageProps {
 }
 
 export default function OrdensPage({ onNavigate }: OrdensPageProps) {
-  const [orders, setOrders] = useState<ServiceOrder[]>(() => loadOrders());
+  const { user } = useAuth();
+  const [orders, setOrders] = useState<ServiceOrder[]>([]);
   const [query, setQuery] = useState('');
-  const [selectedId, setSelectedId] = useState<string | null>(() => loadOrders()[0]?.id ?? null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -63,8 +65,18 @@ export default function OrdensPage({ onNavigate }: OrdensPageProps) {
   const [statusFilter, setStatusFilter] = useState<'todos' | OrderStatus>('todos');
   const [priorityFilter, setPriorityFilter] = useState<'todos' | OrderPriority>('todos');
   const [draft, setDraft] = useState(emptyDraft);
-  const [clients] = useState<ClientRecord[]>(() => loadClients());
-  const [employees] = useState<EmployeeRecord[]>(() => loadEmployees());
+  const [clients, setClients] = useState<ClientRecord[]>([]);
+  const [employees, setEmployees] = useState<EmployeeRecord[]>([]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    Promise.all([loadOrders(user.id), loadClients(user.id), loadEmployees(user.id)]).then(([nextOrders, nextClients, nextEmployees]) => {
+      setOrders(nextOrders);
+      setClients(nextClients);
+      setEmployees(nextEmployees);
+      setSelectedId((current) => current ?? nextOrders[0]?.id ?? null);
+    });
+  }, [user?.id]);
 
   const selectedClientFromDraft = clients.find((client) => client.name.toLowerCase() === draft.client.trim().toLowerCase());
   const isNewClient = draft.client.trim().length > 0 && !selectedClientFromDraft;
@@ -81,7 +93,7 @@ export default function OrdensPage({ onNavigate }: OrdensPageProps) {
 
   const selectedOrder = filteredOrders.find((order) => order.id === selectedId) ?? filteredOrders[0] ?? null;
 
-  const handleCreateOrder = (event: FormEvent<HTMLFormElement>) => {
+  const handleCreateOrder = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const selectedClient = clients.find((client) => client.name.toLowerCase() === draft.client.trim().toLowerCase());
     const selectedEmployee = employees.find((employee) => employee.name.toLowerCase() === draft.technician.trim().toLowerCase());
@@ -113,7 +125,7 @@ export default function OrdensPage({ onNavigate }: OrdensPageProps) {
           : order
       );
       setOrders(updatedOrders);
-      saveOrders(updatedOrders);
+      await saveOrders(user?.id, updatedOrders);
       setSelectedId(selectedOrder.id);
     } else {
       const nextNumber = orders.reduce((max, order) => {
@@ -125,11 +137,9 @@ export default function OrdensPage({ onNavigate }: OrdensPageProps) {
         ...baseOrder,
       };
 
-      setOrders((current) => {
-        const next = [nextOrder, ...current];
-        saveOrders(next);
-        return next;
-      });
+      const next = [nextOrder, ...orders];
+      setOrders(next);
+      await saveOrders(user?.id, next);
       setSelectedId(nextOrder.id);
     }
 
@@ -138,13 +148,11 @@ export default function OrdensPage({ onNavigate }: OrdensPageProps) {
     setDraft(emptyDraft);
   };
 
-  const handleDeleteOrder = () => {
+  const handleDeleteOrder = async () => {
     if (!selectedOrder) return;
-    setOrders((current) => {
-      const next = current.filter((order) => order.id !== selectedOrder.id);
-      saveOrders(next);
-      return next;
-    });
+    const next = orders.filter((order) => order.id !== selectedOrder.id);
+    setOrders(next);
+    await saveOrders(user?.id, next);
     setSelectedId(null);
     setShowDeleteConfirm(false);
   };
@@ -354,18 +362,13 @@ return (
                 {filteredOrders.map((order) => {
                   const isPending = order.status === 'Em análise' || order.status === 'Aguardando peça' || order.status === 'Em andamento';
                   return (
-                    <div key={order.id} className={`grid grid-cols-[1.2fr,0.8fr,0.8fr,0.6fr] items-center gap-2 px-3 py-3 text-sm ${selectedOrder?.id === order.id ? 'bg-violet-50 dark:bg-violet-900/20' : 'bg-white dark:bg-gray-900'} ${isPending ? 'border-l-4 border-amber-500' : ''}`}>
+                    <div key={order.id} className={`grid grid-cols-[1fr,0.7fr] items-center gap-2 px-3 py-3 text-sm ${selectedOrder?.id === order.id ? 'bg-violet-50 dark:bg-violet-900/20' : 'bg-white dark:bg-gray-900'} ${isPending ? 'border-l-4 border-amber-500' : ''}`}>
                       <button type="button" onClick={() => { setSelectedId(order.id); setShowForm(false); setShowDeleteConfirm(false); }} className="text-left">
                         <div className="flex items-center gap-2">
-                          <span className="font-semibold text-violet-600 dark:text-violet-400">{order.id}</span>
                           <span className="truncate text-gray-900 dark:text-gray-100">{order.client}</span>
                         </div>
-                        <p className="mt-1 truncate text-xs text-gray-500 dark:text-gray-400">{order.device}</p>
+                        <p className="mt-1 truncate text-xs text-gray-500 dark:text-gray-400">{order.id}</p>
                       </button>
-                      <span className={`inline-flex w-fit rounded-full px-2 py-0.5 text-[11px] font-medium ${statusStyles[order.status]}`}>
-                        {order.status}
-                      </span>
-                      <span className="text-gray-700 dark:text-gray-300">{order.priority}</span>
                       <div className="flex items-center justify-end gap-1">
                         <button type="button" onClick={() => handleOpenDetails(order)} className="rounded-lg px-2 py-2 text-sm font-medium text-violet-600 transition hover:bg-violet-50 dark:text-violet-400 dark:hover:bg-violet-900/20">
                           Detalhes
