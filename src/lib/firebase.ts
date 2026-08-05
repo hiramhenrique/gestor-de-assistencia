@@ -2,16 +2,25 @@ import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';
 import { getAuth, connectAuthEmulator, type Auth } from 'firebase/auth';
 import { getFirestore, connectFirestoreEmulator, type Firestore } from 'firebase/firestore';
 
-const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID || 'assistencia-tecnica-demo';
-const resolvedAuthDomain = import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || `${projectId}.firebaseapp.com`;
+const defaultFirebaseConfig = {
+  apiKey: 'AIzaSyB61svIQEdiYjk8KaQu04BGCWXg6hKxZB0',
+  authDomain: 'gestor-de-assistencia.firebaseapp.com',
+  projectId: 'gestor-de-assistencia',
+  storageBucket: 'gestor-de-assistencia.firebasestorage.app',
+  messagingSenderId: '72276776870',
+  appId: '1:72276776870:web:91afa516741aae76932167',
+};
+
+const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID || defaultFirebaseConfig.projectId;
+const resolvedAuthDomain = import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || defaultFirebaseConfig.authDomain;
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || 'demo-key',
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || defaultFirebaseConfig.apiKey,
   authDomain: resolvedAuthDomain,
   projectId,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || 'assistencia-tecnica-demo.firebasestorage.app',
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '000000000000',
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || '1:000000000000:web:demo',
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || defaultFirebaseConfig.storageBucket,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || defaultFirebaseConfig.messagingSenderId,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || defaultFirebaseConfig.appId,
 };
 
 let app: FirebaseApp;
