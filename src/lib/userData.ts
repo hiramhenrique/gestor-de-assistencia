@@ -27,49 +27,24 @@ function getUserCollectionRef(userId: string, name: UserCollectionName) {
   return collection(db, 'users', userId, getCollectionName(name));
 }
 
-function getSharedCollectionRef(name: UserCollectionName) {
-  return collection(db, `shared_${getCollectionName(name)}`);
+export async function loadUserCollection<T extends { id: string }>(userId: string, name: UserCollectionName): Promise<T[]> {
+  if (!userId) return [];
+  const snapshot = await getDocs(getUserCollectionRef(userId, name));
+  return snapshot.docs.map((item) => ({ ...(item.data() as T) }));
 }
 
-async function replaceCollectionWithItems<T extends { id: string }>(
-  ref: ReturnType<typeof collection>,
-  items: T[]
-) {
+export async function saveUserCollection<T extends { id: string }>(userId: string, name: UserCollectionName, items: T[]) {
+  if (!userId) return;
+  const ref = getUserCollectionRef(userId, name);
   const snapshot = await getDocs(ref);
   await Promise.all(snapshot.docs.map((item) => deleteDoc(doc(ref, item.id))));
   await Promise.all(items.map((item) => setDoc(doc(ref, item.id), item)));
 }
 
-async function copyLegacyUserDataToShared<T extends { id: string }>(userId: string, name: UserCollectionName) {
-  const legacyRef = getUserCollectionRef(userId, name);
-  const legacySnapshot = await getDocs(legacyRef);
-  if (legacySnapshot.empty) return [] as T[];
-  const legacyItems = legacySnapshot.docs.map((item) => ({ ...(item.data() as T) }));
-  await replaceCollectionWithItems<T>(getSharedCollectionRef(name), legacyItems);
-  return legacyItems;
-}
-
-export async function loadUserCollection<T extends { id: string }>(userId: string, name: UserCollectionName): Promise<T[]> {
-  const sharedRef = getSharedCollectionRef(name);
-  const sharedSnapshot = await getDocs(sharedRef);
-  if (!sharedSnapshot.empty) {
-    return sharedSnapshot.docs.map((item) => ({ ...(item.data() as T) }));
-  }
-
-  if (!userId) return [];
-  return copyLegacyUserDataToShared<T>(userId, name);
-}
-
-export async function saveUserCollection<T extends { id: string }>(userId: string, name: UserCollectionName, items: T[]) {
-  void userId;
-  const ref = getSharedCollectionRef(name);
-  await replaceCollectionWithItems<T>(ref, items);
-}
-
 export async function clearUserCollections(userId: string) {
-  void userId;
+  if (!userId) return;
   await Promise.all((Object.keys(COLLECTION_DEFAULTS) as UserCollectionName[]).map(async (name) => {
-    const ref = getSharedCollectionRef(name);
+    const ref = getUserCollectionRef(userId, name);
     const snapshot = await getDocs(ref);
     await Promise.all(snapshot.docs.map((item) => deleteDoc(doc(ref, item.id))));
   }));
