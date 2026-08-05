@@ -15,11 +15,10 @@ interface LoginPageProps {
 }
 
 export default function LoginPage({ onNavigateToRegister }: LoginPageProps) {
-  const { login, loginWithGoogle } = useAuth();
+  const { login } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [serverError, setServerError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
   const [forgotOpen, setForgotOpen] = useState(false);
 
   const {
@@ -39,18 +38,6 @@ export default function LoginPage({ onNavigateToRegister }: LoginPageProps) {
       setServerError(err instanceof Error ? err.message : 'Erro ao entrar.');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const onGoogleLogin = async () => {
-    setServerError('');
-    setGoogleLoading(true);
-    try {
-      await loginWithGoogle(true);
-    } catch (err) {
-      setServerError(err instanceof Error ? err.message : 'Erro ao entrar com o Google.');
-    } finally {
-      setGoogleLoading(false);
     }
   };
 
@@ -136,24 +123,6 @@ export default function LoginPage({ onNavigateToRegister }: LoginPageProps) {
               Entrar
             </Button>
           </form>
-
-          <div className="my-5 flex items-center gap-3">
-            <div className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
-            <span className="text-xs font-medium uppercase tracking-[0.2em] text-gray-400 dark:text-gray-500">
-              ou
-            </span>
-            <div className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
-          </div>
-
-          <Button type="button" variant="secondary" fullWidth loading={googleLoading} onClick={onGoogleLogin}>
-            <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
-              <path fill="#4285F4" d="M21.6 12.23c0-.79-.07-1.54-.2-2.27H12v4.3h5.38a4.6 4.6 0 0 1-2 3.02v2.5h3.24c1.9-1.75 2.99-4.33 2.99-7.55Z" />
-              <path fill="#34A853" d="M12 22c2.7 0 4.96-.9 6.62-2.43l-3.24-2.5c-.9.6-2.05.96-3.38.96-2.59 0-4.79-1.75-5.58-4.11H3.07v2.57A10 10 0 0 0 12 22Z" />
-              <path fill="#FBBC05" d="M6.42 13.92A6.01 6.01 0 0 1 6.42 10.08V7.51H3.07a10 10 0 0 0 0 12.82l3.35-2.41Z" />
-              <path fill="#EA4335" d="M12 6.08c1.46 0 2.78.5 3.82 1.49l2.87-2.87A9.95 9.95 0 0 0 12 2a10 10 0 0 0-8.93 5.51l3.35 2.57C7.21 7.83 9.41 6.08 12 6.08Z" />
-            </svg>
-            Entrar com Google
-          </Button>
 
           <div className="mt-6 pt-6 border-t border-gray-100 dark:border-gray-700 text-center">
             <p className="text-sm text-gray-500 dark:text-gray-400">

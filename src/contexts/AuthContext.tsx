@@ -4,9 +4,6 @@ import {
   createUserWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
-  GoogleAuthProvider,
-  signInWithPopup,
-  signInWithRedirect,
   inMemoryPersistence,
   setPersistence,
   type User as FirebaseUser,
@@ -19,15 +16,11 @@ interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   login: (email: string, password: string, remember: boolean) => Promise<void>;
-  loginWithGoogle: (remember?: boolean) => Promise<void>;
   register: (data: RegisterFormData) => Promise<void>;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
-
-const googleProvider = new GoogleAuthProvider();
-googleProvider.setCustomParameters({ prompt: 'select_account' });
 
 function getAuthErrorCode(error: unknown): string {
   if (typeof error === 'object' && error !== null && 'code' in error) {
@@ -35,33 +28,6 @@ function getAuthErrorCode(error: unknown): string {
     return code || '';
   }
   return '';
-}
-
-function getErrorMessage(error: unknown): string {
-  if (typeof error === 'object' && error !== null && 'message' in error) {
-    const message = (error as { message?: string }).message;
-    return message || '';
-  }
-  return '';
-}
-
-function getGoogleLoginErrorMessage(code: string): string {
-  switch (code) {
-    case 'auth/unauthorized-domain':
-      return 'Este domínio não está autorizado no Firebase Auth. Adicione o domínio em Authentication > Settings > Authorized domains.';
-    case 'auth/operation-not-allowed':
-      return 'Login com Google desativado no Firebase. Ative o provedor Google em Authentication > Sign-in method.';
-    case 'auth/popup-blocked':
-      return 'O navegador bloqueou a janela de login. Permita pop-ups e tente novamente.';
-    case 'auth/network-request-failed':
-      return 'Falha de rede ao autenticar com Google. Verifique sua conexão e tente novamente.';
-    case 'auth/invalid-api-key':
-      return 'A chave da API do Firebase está inválida. Verifique o arquivo .env.local.';
-    default:
-      return code
-        ? `Não foi possível entrar com o Google (${code}).`
-        : 'Não foi possível entrar com o Google. Tente novamente.';
-  }
 }
 
 async function syncUserProfile(firebaseUser: FirebaseUser, fallback?: Partial<User>): Promise<User> {
@@ -130,38 +96,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const loginWithGoogle = async (remember = true) => {
-    void remember;
-    try {
-      const cred = await signInWithPopup(auth, googleProvider);
-      const safeUser = await syncUserProfile(cred.user);
-      setUser(safeUser);
-    } catch (error) {
-      const code = getAuthErrorCode(error);
-      const rawMessage = getErrorMessage(error);
-
-      if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
-        return;
-      }
-
-      if (code === 'auth/popup-blocked' || (!code && import.meta.env.PROD)) {
-        try {
-          await signInWithRedirect(auth, googleProvider);
-          return;
-        } catch {
-          throw new Error(getGoogleLoginErrorMessage(code));
-        }
-      }
-
-      if (!code && rawMessage) {
-        console.error('Google login failed without Firebase Auth code:', error);
-        throw new Error(`Não foi possível entrar com o Google. Detalhe: ${rawMessage}`);
-      }
-
-      throw new Error(getGoogleLoginErrorMessage(code));
-    }
-  };
-
   const register = async (data: RegisterFormData) => {
     const sanitizedCpf = data.cpf.replace(/\D/g, '');
     const cpfExists = await hasCpfRegistered(sanitizedCpf);
@@ -201,7 +135,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, login, loginWithGoogle, register, logout }}>
+    <AuthContext.Provider value={{ user, isAuthenticated: !!user, login, register, logout }}>
       {children}
     </AuthContext.Provider>
   );
