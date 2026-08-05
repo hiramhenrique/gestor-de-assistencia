@@ -49,11 +49,9 @@ export default function FuncionariosPage() {
         phone: draft.phone || 'Não informado',
         email: draft.email || 'Não informado',
       };
-      setEmployees((current) => {
-        const next = [newEmployee, ...current];
-        void saveEmployees(user?.id, next);
-        return next;
-      });
+      const next = [newEmployee, ...employees];
+      setEmployees(next);
+      await saveEmployees(user?.id, next);
       setSelectedId(newEmployee.id);
     }
 
@@ -64,11 +62,9 @@ export default function FuncionariosPage() {
 
   const handleDelete = async () => {
     if (!selectedEmployee) return;
-    setEmployees((current) => {
-      const next = current.filter((employee) => employee.id !== selectedEmployee.id);
-      void saveEmployees(user?.id, next);
-      return next;
-    });
+    const next = employees.filter((employee) => employee.id !== selectedEmployee.id);
+    setEmployees(next);
+    await saveEmployees(user?.id, next);
     setSelectedId(null);
     setConfirmDelete(false);
   };

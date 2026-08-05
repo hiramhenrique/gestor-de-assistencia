@@ -60,11 +60,9 @@ export default function ClientesPage() {
         address: draft.address || 'Não informado',
         notes: draft.notes || 'Sem observações',
       };
-      setClients((current) => {
-        const next = [newClient, ...current];
-        void saveClients(user?.id, next);
-        return next;
-      });
+      const next = [newClient, ...clients];
+      setClients(next);
+      await saveClients(user?.id, next);
       setSelectedId(newClient.id);
     }
 

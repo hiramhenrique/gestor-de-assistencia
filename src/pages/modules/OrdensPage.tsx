@@ -137,11 +137,9 @@ export default function OrdensPage({ onNavigate }: OrdensPageProps) {
         ...baseOrder,
       };
 
-      setOrders((current) => {
-        const next = [nextOrder, ...current];
-        void saveOrders(user?.id, next);
-        return next;
-      });
+      const next = [nextOrder, ...orders];
+      setOrders(next);
+      await saveOrders(user?.id, next);
       setSelectedId(nextOrder.id);
     }
 
@@ -152,11 +150,9 @@ export default function OrdensPage({ onNavigate }: OrdensPageProps) {
 
   const handleDeleteOrder = async () => {
     if (!selectedOrder) return;
-    setOrders((current) => {
-      const next = current.filter((order) => order.id !== selectedOrder.id);
-      void saveOrders(user?.id, next);
-      return next;
-    });
+    const next = orders.filter((order) => order.id !== selectedOrder.id);
+    setOrders(next);
+    await saveOrders(user?.id, next);
     setSelectedId(null);
     setShowDeleteConfirm(false);
   };

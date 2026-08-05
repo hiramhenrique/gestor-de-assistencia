@@ -87,21 +87,19 @@ export default function OrcamentosPage() {
     if (!draft.model.trim() || !draft.value) return;
 
     if (editingItemId) {
-      setItems((current) => {
-        const next = current.map((item) =>
-          item.id === editingItemId
-            ? {
-                ...item,
-                model: draft.model.trim(),
-                value: Number(draft.value),
-                quality: draft.quality,
-                observations: requiresObservations ? draft.observations.trim() : '',
-              }
-            : item
-        );
-        void saveOrcamentos(user?.id, next);
-        return next;
-      });
+      const next = items.map((item) =>
+        item.id === editingItemId
+          ? {
+              ...item,
+              model: draft.model.trim(),
+              value: Number(draft.value),
+              quality: draft.quality,
+              observations: requiresObservations ? draft.observations.trim() : '',
+            }
+          : item
+      );
+      setItems(next);
+      await saveOrcamentos(user?.id, next);
       setShowModal(false);
       setEditingItemId(null);
       setDraft({ model: '', value: '', quality: 'Incell', observations: '' });
@@ -117,11 +115,9 @@ export default function OrcamentosPage() {
       observations: requiresObservations ? draft.observations.trim() : '',
     };
 
-    setItems((current) => {
-      const next = [newItem, ...current];
-      void saveOrcamentos(user?.id, next);
-      return next;
-    });
+    const next = [newItem, ...items];
+    setItems(next);
+    await saveOrcamentos(user?.id, next);
     setShowModal(false);
     setDraft({ model: '', value: '', quality: 'Incell', observations: '' });
   };
@@ -146,11 +142,9 @@ export default function OrcamentosPage() {
 
   const confirmDeleteItem = async () => {
     if (!itemToDelete) return;
-    setItems((current) => {
-      const next = current.filter((item) => item.id !== itemToDelete.id);
-      void saveOrcamentos(user?.id, next);
-      return next;
-    });
+    const next = items.filter((item) => item.id !== itemToDelete.id);
+    setItems(next);
+    await saveOrcamentos(user?.id, next);
     setSelectedItemIds((current) => current.filter((id) => id !== itemToDelete.id));
     setShowDeleteConfirm(false);
     setItemToDelete(null);
