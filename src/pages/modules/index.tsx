@@ -1,4 +1,4 @@
-import { Activity, CheckCircle2, MessageCircleMore, Package, ShoppingCart, Wallet, XCircle } from 'lucide-react';
+import { Activity, CheckCircle2, Package, ShoppingCart, Wallet, XCircle } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import type { ComponentProps } from 'react';
 import PlaceholderPage from './PlaceholderPage';
@@ -146,7 +146,7 @@ export function AcompanhamentoPage() {
                       onClick={() => moveStatus(order.id, 'prev')}
                       disabled={activeIndex === 0}
                       aria-label="Status anterior"
-                      className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-300 bg-white text-base font-bold text-gray-700 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-700"
+                      className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-gray-300 bg-white text-xl font-black text-gray-700 shadow-sm transition hover:bg-gray-100 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-700 dark:hover:text-white"
                     >
                       «
                     </button>
@@ -155,7 +155,7 @@ export function AcompanhamentoPage() {
                       onClick={() => moveStatus(order.id, 'next')}
                       disabled={activeIndex === statusSequence.length - 1}
                       aria-label="Próximo status"
-                      className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-300 bg-white text-base font-bold text-gray-700 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-700"
+                      className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-gray-300 bg-white text-xl font-black text-gray-700 shadow-sm transition hover:bg-gray-100 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-700 dark:hover:text-white"
                     >
                       »
                     </button>
@@ -163,9 +163,11 @@ export function AcompanhamentoPage() {
                       type="button"
                       onClick={() => openWhatsApp(order)}
                       disabled={!order.phone || order.phone === 'Não informado'}
-                      className="inline-flex items-center justify-center gap-2 rounded-lg bg-green-500 px-3 py-2 text-sm font-semibold text-white transition hover:bg-green-600 disabled:cursor-not-allowed disabled:bg-gray-300 dark:disabled:bg-gray-700"
+                      className="inline-flex items-center justify-center gap-2 rounded-lg bg-green-500 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-green-600 disabled:cursor-not-allowed disabled:bg-gray-300 dark:disabled:bg-gray-700"
                     >
-                      <MessageCircleMore className="h-4 w-4" />
+                      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className="h-4 w-4">
+                        <path d="M20.52 3.48A11.86 11.86 0 0 0 12.08 0C5.48 0 .09 5.39.09 12.01c0 2.1.55 4.15 1.59 5.95L0 24l6.18-1.62A11.93 11.93 0 0 0 12.08 24c6.62 0 12-5.39 12-12.01 0-3.2-1.24-6.22-3.56-8.51ZM12.08 21.9c-1.89 0-3.74-.5-5.35-1.45l-.38-.23-3.67.96 1-3.57-.24-.37a9.88 9.88 0 0 1-1.54-5.22c0-5.46 4.46-9.9 9.96-9.9a9.87 9.87 0 0 1 7 2.92 9.78 9.78 0 0 1 2.92 7.02c.01 5.46-4.45 9.9-9.91 9.9Zm5.43-7.4c-.3-.15-1.76-.87-2.03-.97-.27-.1-.46-.15-.66.15-.19.3-.74.97-.91 1.17-.17.2-.33.22-.62.08-.3-.15-1.27-.47-2.41-1.49-.89-.79-1.49-1.77-1.66-2.07-.17-.3-.02-.46.13-.61.13-.13.3-.33.45-.5.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.08-.15-.66-1.6-.91-2.2-.24-.57-.48-.49-.66-.49h-.57c-.2 0-.52.07-.79.37-.27.3-1.03 1.01-1.03 2.46s1.05 2.84 1.2 3.04c.15.2 2.05 3.13 4.98 4.39.7.3 1.24.48 1.67.62.7.22 1.34.19 1.84.12.56-.08 1.76-.72 2.01-1.42.25-.7.25-1.3.18-1.42-.08-.12-.27-.2-.57-.35Z" />
+                      </svg>
                       Enviar status
                     </button>
                   </div>
@@ -207,12 +209,6 @@ export function AcompanhamentoPage() {
                     </div>
                   </div>
 
-                  <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 dark:border-gray-700 dark:bg-gray-800/60">
-                    <div className="flex items-center justify-between text-[10px] font-semibold uppercase tracking-[0.15em] text-gray-500 dark:text-gray-400">
-                      <span>Etapa atual</span>
-                      <span>{order.status}</span>
-                    </div>
-                  </div>
                 </div>
 
                 <div className="mt-4 flex items-center justify-between border-t border-gray-200 pt-3 text-xs text-gray-500 dark:border-gray-700 dark:text-gray-400">
