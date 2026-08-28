@@ -9,6 +9,7 @@ import FormulariosPageComponent from './FormulariosPage';
 import OrcamentosPageComponent from './OrcamentosPage';
 import { useAuth } from '../../contexts/AuthContext';
 import { loadOrders, saveOrders, type OrderStatus, type ServiceOrder } from './ordersData';
+import { buildPublicStatusUrl, removePublicStatus, savePublicStatus } from './publicStatus';
 
 const statusSequence: OrderStatus[] = ['Em análise', 'Aguardando aprovação', 'Aguardando peça', 'Em andamento', 'Concluída'];
 
@@ -80,6 +81,27 @@ export function AcompanhamentoPage() {
   const updateStatus = async (orderId: string, nextStatus: OrderStatus) => {
     const updated = orders.map((order) => order.id === orderId ? { ...order, status: nextStatus } : order);
     setOrders(updated);
+
+    const target = updated.find((order) => order.id === orderId);
+    if (!target) {
+      await saveOrders(user?.id, updated);
+      return;
+    }
+
+    if (nextStatus === 'Concluída') {
+      removePublicStatus(orderId);
+    } else {
+      savePublicStatus({
+        orderId: target.id,
+        client: target.client,
+        device: target.device,
+        phone: target.phone,
+        status: target.status,
+        updatedAt: new Date().toISOString(),
+        shareUrl: buildPublicStatusUrl(target.id),
+      });
+    }
+
     await saveOrders(user?.id, updated);
   };
 
@@ -97,7 +119,27 @@ export function AcompanhamentoPage() {
     const digits = order.phone.replace(/\D/g, '');
     if (!digits) return;
 
-    const message = `Olá ${order.client}!\nSeu aparelho ${order.device} está com status: ${order.status}.\nAcompanhe a ordem ${order.id}.`;
+    if (order.status === 'Concluída') {
+      removePublicStatus(order.id);
+      const completionImage = `${window.location.origin}/status-concluido.svg`;
+      const finalMessage = `✅ Serviço foi concluído.\nImagem de confirmação: ${completionImage}`;
+      const link = `https://wa.me/55${digits}?text=${encodeURIComponent(finalMessage)}`;
+      window.open(link, '_blank', 'noopener,noreferrer');
+      return;
+    }
+
+    const shareUrl = buildPublicStatusUrl(order.id);
+    savePublicStatus({
+      orderId: order.id,
+      client: order.client,
+      device: order.device,
+      phone: order.phone,
+      status: order.status,
+      updatedAt: new Date().toISOString(),
+      shareUrl,
+    });
+
+    const message = `Olá ${order.client}!\nAcompanhe o andamento do seu aparelho ${order.device} aqui:\n${shareUrl}`;
     const link = `https://wa.me/55${digits}?text=${encodeURIComponent(message)}`;
     window.open(link, '_blank', 'noopener,noreferrer');
   };
