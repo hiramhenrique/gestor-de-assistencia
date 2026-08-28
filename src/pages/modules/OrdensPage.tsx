@@ -20,10 +20,10 @@ import { loadEmployees, type EmployeeRecord } from './employeesData';
 
 const statusStyles: Record<OrderStatus, string> = {
   'Em análise': 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400',
+  'Aguardando aprovação': 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
   'Aguardando peça': 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
   'Em andamento': 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400',
   Concluída: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-  'Aguardando aprovação': 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
 };
 
 const emptyDraft = {
@@ -326,10 +326,10 @@ return (
             >
               <option value="todos">Todos os status</option>
               <option value="Em análise">Em análise</option>
+              <option value="Aguardando aprovação">Aguardando aprovação</option>
               <option value="Aguardando peça">Aguardando peça</option>
               <option value="Em andamento">Em andamento</option>
               <option value="Concluída">Concluída</option>
-              <option value="Aguardando aprovação">Aguardando aprovação</option>
             </select>
             <select
               value={priorityFilter}
@@ -462,10 +462,10 @@ return (
                     <span className="mb-1 block font-medium">Status</span>
                     <select value={draft.status} onChange={(event) => setDraft((current) => ({ ...current, status: event.target.value as OrderStatus }))} className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-violet-400 dark:border-gray-700 dark:bg-gray-800">
                       <option>Em análise</option>
+                      <option>Aguardando aprovação</option>
                       <option>Aguardando peça</option>
                       <option>Em andamento</option>
                       <option>Concluída</option>
-                      <option>Aguardando aprovação</option>
                     </select>
                   </label>
                   <label className="text-sm text-gray-600 dark:text-gray-300">

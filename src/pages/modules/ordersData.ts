@@ -1,4 +1,4 @@
-export type OrderStatus = 'Em análise' | 'Aguardando peça' | 'Em andamento' | 'Concluída' | 'Aguardando aprovação';
+export type OrderStatus = 'Em análise' | 'Aguardando aprovação' | 'Aguardando peça' | 'Em andamento' | 'Concluída';
 export type OrderPriority = 'Baixa' | 'Média' | 'Alta' | 'Urgente';
 
 export interface ServiceOrder {

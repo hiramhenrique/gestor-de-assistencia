@@ -49,14 +49,16 @@ function parseDateTime(value: string) {
 
 function getStatusColor(status: ServiceOrder['status']) {
   switch (status) {
-    case 'Em andamento':
-      return 'cyan';
-    case 'Aguardando peça':
-      return 'yellow';
-    case 'Concluída':
-      return 'green';
+    case 'Em análise':
+      return 'violet';
     case 'Aguardando aprovação':
       return 'violet';
+    case 'Aguardando peça':
+      return 'yellow';
+    case 'Em andamento':
+      return 'cyan';
+    case 'Concluída':
+      return 'green';
     default:
       return 'violet';
   }
