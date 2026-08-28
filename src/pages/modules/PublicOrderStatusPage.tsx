@@ -9,14 +9,17 @@ interface PublicOrderStatusPageProps {
 
 export default function PublicOrderStatusPage({ orderId }: PublicOrderStatusPageProps) {
   const [entry, setEntry] = useState<PublicOrderStatusData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     let isMounted = true;
 
     async function loadEntry() {
+      setIsLoading(true);
       const nextEntry = await readPublicStatus(orderId);
       if (isMounted) {
         setEntry(nextEntry);
+        setIsLoading(false);
       }
     }
 
@@ -27,22 +30,38 @@ export default function PublicOrderStatusPage({ orderId }: PublicOrderStatusPage
   }, [orderId]);
 
   const activeIndex = useMemo(() => {
-    if (!entry) return -1;
+    if (!entry) return 0;
     return statusSequence.indexOf(entry.status as OrderStatus);
   }, [entry]);
 
   const progressPercent = entry ? ((activeIndex + 1) / statusSequence.length) * 100 : 0;
 
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-950 px-4 text-white">
+        <div className="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 p-6 text-center shadow-2xl">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-cyan-500/15 text-cyan-400">
+            <ClipboardList className="h-7 w-7" />
+          </div>
+          <h1 className="text-2xl font-bold">Carregando acompanhamento</h1>
+          <p className="mt-3 text-sm text-slate-300">
+            Aguarde enquanto buscamos o status mais recente do seu aparelho.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (!entry) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-950 px-4 text-white">
         <div className="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 p-6 text-center shadow-2xl">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-red-500/15 text-red-400">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-amber-500/15 text-amber-300">
             <ClipboardList className="h-7 w-7" />
           </div>
-          <h1 className="text-2xl font-bold">Acompanhamento encerrado</h1>
+          <h1 className="text-2xl font-bold">Acompanhamento em atualização</h1>
           <p className="mt-3 text-sm text-slate-300">
-            Este link foi removido ou o serviço já foi concluído.
+            Ainda não há um status público disponível para este atendimento.
           </p>
         </div>
       </div>

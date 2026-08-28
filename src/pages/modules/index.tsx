@@ -130,9 +130,10 @@ export function AcompanhamentoPage() {
       ? `https://wa.me/${targetPhone}?text=${encodeURIComponent(`✅ Serviço foi concluído.\n${window.location.origin}/status-concluido.svg`)}`
       : `https://wa.me/${targetPhone}?text=${encodeURIComponent(`Olá ${order.client}!\nAcompanhe o andamento do seu aparelho ${order.device} aqui:\n${shareUrl}`)}`;
 
-    const popup = window.open(link, '_blank', 'noopener,noreferrer');
+    const popup = window.open('', '_blank', 'noopener,noreferrer');
     if (!popup) {
-      window.location.href = link;
+      window.open(link, '_blank', 'noopener,noreferrer');
+      return;
     }
 
     try {
@@ -149,8 +150,11 @@ export function AcompanhamentoPage() {
           shareUrl,
         });
       }
+
+      popup.opener = null;
+      popup.location.href = link;
     } catch {
-      // ignora erro de persistência para não bloquear a abertura do WhatsApp
+      popup.location.href = link;
     }
   };
 
