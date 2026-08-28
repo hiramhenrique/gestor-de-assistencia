@@ -140,15 +140,35 @@ export function AcompanhamentoPage() {
                     <p className="text-sm text-gray-600 dark:text-gray-300">Aparelho: <span className="font-semibold">{order.device}</span></p>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => openWhatsApp(order)}
-                    disabled={!order.phone || order.phone === 'Não informado'}
-                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-green-500 px-3 py-2 text-sm font-semibold text-white transition hover:bg-green-600 disabled:cursor-not-allowed disabled:bg-gray-300 dark:disabled:bg-gray-700"
-                  >
-                    <MessageCircleMore className="h-4 w-4" />
-                    Enviar status
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => moveStatus(order.id, 'prev')}
+                      disabled={activeIndex === 0}
+                      aria-label="Status anterior"
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-300 bg-white text-base font-bold text-gray-700 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-700"
+                    >
+                      «
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => moveStatus(order.id, 'next')}
+                      disabled={activeIndex === statusSequence.length - 1}
+                      aria-label="Próximo status"
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-300 bg-white text-base font-bold text-gray-700 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-700"
+                    >
+                      »
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => openWhatsApp(order)}
+                      disabled={!order.phone || order.phone === 'Não informado'}
+                      className="inline-flex items-center justify-center gap-2 rounded-lg bg-green-500 px-3 py-2 text-sm font-semibold text-white transition hover:bg-green-600 disabled:cursor-not-allowed disabled:bg-gray-300 dark:disabled:bg-gray-700"
+                    >
+                      <MessageCircleMore className="h-4 w-4" />
+                      Enviar status
+                    </button>
+                  </div>
                 </div>
 
                 <div className="mt-5">
@@ -187,28 +207,11 @@ export function AcompanhamentoPage() {
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50 p-2 dark:border-gray-700 dark:bg-gray-800/60">
-                    <button
-                      type="button"
-                      onClick={() => moveStatus(order.id, 'prev')}
-                      disabled={activeIndex === 0}
-                      className="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-700 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-700"
-                    >
-                      Anterior
-                    </button>
-
-                    <span className="text-center text-xs font-semibold text-gray-700 dark:text-gray-200">
-                      {order.status}
-                    </span>
-
-                    <button
-                      type="button"
-                      onClick={() => moveStatus(order.id, 'next')}
-                      disabled={activeIndex === statusSequence.length - 1}
-                      className="inline-flex items-center justify-center rounded-lg bg-cyan-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      Próximo
-                    </button>
+                  <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 dark:border-gray-700 dark:bg-gray-800/60">
+                    <div className="flex items-center justify-between text-[10px] font-semibold uppercase tracking-[0.15em] text-gray-500 dark:text-gray-400">
+                      <span>Etapa atual</span>
+                      <span>{order.status}</span>
+                    </div>
                   </div>
                 </div>
 
