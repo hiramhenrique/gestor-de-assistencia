@@ -1,3 +1,5 @@
+import { deleteDoc, doc, getDoc, setDoc } from 'firebase/firestore';
+import { db } from '../../lib/firebase';
 import type { OrderStatus } from './ordersData';
 
 export const statusSequence: OrderStatus[] = ['Em análise', 'Aguardando aprovação', 'Aguardando peça', 'Em andamento', 'Concluída'];
@@ -12,7 +14,7 @@ export interface PublicOrderStatusData {
   shareUrl: string;
 }
 
-const PUBLIC_STATUS_KEY_PREFIX = 'public-order-status:';
+const PUBLIC_STATUS_COLLECTION = 'public-status';
 
 export function buildPublicStatusUrl(orderId: string): string {
   if (typeof window === 'undefined' || !orderId) return '';
@@ -21,25 +23,26 @@ export function buildPublicStatusUrl(orderId: string): string {
   return url.toString();
 }
 
-export function readPublicStatus(orderId: string): PublicOrderStatusData | null {
-  if (typeof window === 'undefined' || !orderId) return null;
+export async function readPublicStatus(orderId: string): Promise<PublicOrderStatusData | null> {
+  if (!orderId) return null;
 
-  try {
-    const raw = window.localStorage.getItem(`${PUBLIC_STATUS_KEY_PREFIX}${orderId}`);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as PublicOrderStatusData;
-    return parsed;
-  } catch {
-    return null;
-  }
+  const ref = doc(db, PUBLIC_STATUS_COLLECTION, orderId);
+  const snapshot = await getDoc(ref);
+  if (!snapshot.exists()) return null;
+
+  return snapshot.data() as PublicOrderStatusData;
 }
 
-export function savePublicStatus(data: PublicOrderStatusData) {
-  if (typeof window === 'undefined') return;
-  window.localStorage.setItem(`${PUBLIC_STATUS_KEY_PREFIX}${data.orderId}`, JSON.stringify(data));
+export async function savePublicStatus(data: PublicOrderStatusData) {
+  const ref = doc(db, PUBLIC_STATUS_COLLECTION, data.orderId);
+  await setDoc(ref, {
+    ...data,
+    updatedAt: new Date().toISOString(),
+  });
 }
 
-export function removePublicStatus(orderId: string) {
-  if (typeof window === 'undefined' || !orderId) return;
-  window.localStorage.removeItem(`${PUBLIC_STATUS_KEY_PREFIX}${orderId}`);
+export async function removePublicStatus(orderId: string) {
+  if (!orderId) return;
+  const ref = doc(db, PUBLIC_STATUS_COLLECTION, orderId);
+  await deleteDoc(ref);
 }

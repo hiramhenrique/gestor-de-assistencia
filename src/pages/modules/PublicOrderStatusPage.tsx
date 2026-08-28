@@ -1,17 +1,29 @@
 import { useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, ClipboardList, Wrench } from 'lucide-react';
 import { type OrderStatus } from './ordersData';
-import { readPublicStatus, statusSequence } from './publicStatus';
+import { type PublicOrderStatusData, readPublicStatus, statusSequence } from './publicStatus';
 
 interface PublicOrderStatusPageProps {
   orderId: string;
 }
 
 export default function PublicOrderStatusPage({ orderId }: PublicOrderStatusPageProps) {
-  const [entry, setEntry] = useState<ReturnType<typeof readPublicStatus> | null>(null);
+  const [entry, setEntry] = useState<PublicOrderStatusData | null>(null);
 
   useEffect(() => {
-    setEntry(readPublicStatus(orderId));
+    let isMounted = true;
+
+    async function loadEntry() {
+      const nextEntry = await readPublicStatus(orderId);
+      if (isMounted) {
+        setEntry(nextEntry);
+      }
+    }
+
+    loadEntry();
+    return () => {
+      isMounted = false;
+    };
   }, [orderId]);
 
   const activeIndex = useMemo(() => {

@@ -89,9 +89,9 @@ export function AcompanhamentoPage() {
     }
 
     if (nextStatus === 'Concluída') {
-      removePublicStatus(orderId);
+      await removePublicStatus(orderId);
     } else {
-      savePublicStatus({
+      await savePublicStatus({
         orderId: target.id,
         client: target.client,
         device: target.device,
@@ -115,21 +115,21 @@ export function AcompanhamentoPage() {
     await updateStatus(orderId, statusSequence[targetIndex]);
   };
 
-  const openWhatsApp = (order: ServiceOrder) => {
+  const openWhatsApp = async (order: ServiceOrder) => {
     const digits = order.phone.replace(/\D/g, '');
     if (!digits) return;
 
     if (order.status === 'Concluída') {
-      removePublicStatus(order.id);
+      await removePublicStatus(order.id);
       const completionImage = `${window.location.origin}/status-concluido.svg`;
-      const finalMessage = `✅ Serviço foi concluído.\nImagem de confirmação: ${completionImage}`;
+      const finalMessage = `✅ Serviço foi concluído.\n${completionImage}`;
       const link = `https://wa.me/55${digits}?text=${encodeURIComponent(finalMessage)}`;
       window.open(link, '_blank', 'noopener,noreferrer');
       return;
     }
 
     const shareUrl = buildPublicStatusUrl(order.id);
-    savePublicStatus({
+    await savePublicStatus({
       orderId: order.id,
       client: order.client,
       device: order.device,
