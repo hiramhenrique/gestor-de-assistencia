@@ -3,6 +3,7 @@ import { PlusCircle, Search, UserCog } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import Modal from '../../components/ui/Modal';
 import { useAuth } from '../../contexts/AuthContext';
+import { normalizePhone } from '../../utils/masks';
 import { initialEmployees, loadEmployees, saveEmployees, type EmployeeRecord } from './employeesData';
 
 export default function FuncionariosPage() {
@@ -154,7 +155,13 @@ export default function FuncionariosPage() {
                 <div className="grid gap-3 md:grid-cols-2">
                   <label className="text-sm text-gray-600 dark:text-gray-300">
                     <span className="mb-1 block font-medium">Telefone</span>
-                    <input value={draft.phone} onChange={(event) => setDraft((current) => ({ ...current, phone: event.target.value }))} className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-violet-400 dark:border-gray-700 dark:bg-gray-800" />
+                    <input
+                      value={draft.phone}
+                      onChange={(event) => setDraft((current) => ({ ...current, phone: normalizePhone(event.target.value) }))}
+                      inputMode="numeric"
+                      placeholder="(31) 99123-4567"
+                      className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-violet-400 dark:border-gray-700 dark:bg-gray-800"
+                    />
                   </label>
                   <label className="text-sm text-gray-600 dark:text-gray-300">
                     <span className="mb-1 block font-medium">E-mail</span>

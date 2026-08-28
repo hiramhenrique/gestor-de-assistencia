@@ -3,6 +3,7 @@ import { PlusCircle, Search, Users, Eye } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import Modal from '../../components/ui/Modal';
 import { useAuth } from '../../contexts/AuthContext';
+import { normalizePhone, isValidPhone } from '../../utils/masks';
 import { loadClients, saveClients, type ClientRecord } from './clientsData';
 
 export default function ClientesPage() {
@@ -33,13 +34,20 @@ export default function ClientesPage() {
   const selectedClient = filteredClients.find((client) => client.id === selectedId) ?? filteredClients[0] ?? null;
 
   const handleSave = async () => {
+    const normalizedPhone = normalizePhone(draft.phone);
+    if (draft.phone && !isValidPhone(normalizedPhone)) {
+      return;
+    }
+
+    const safePhone = normalizedPhone || 'Não informado';
+
     if (isEditing && selectedClient) {
       const updatedClients = clients.map((client) =>
         client.id === selectedClient.id
           ? {
               ...client,
               name: draft.name || 'Cliente sem nome',
-              phone: draft.phone || 'Não informado',
+              phone: safePhone,
               email: draft.email || 'Não informado',
               cpf: draft.cpf || 'Não informado',
               address: draft.address || 'Não informado',
@@ -54,7 +62,7 @@ export default function ClientesPage() {
       const newClient: ClientRecord = {
         id: `CL-${String(clients.length + 1).padStart(3, '0')}`,
         name: draft.name || 'Cliente sem nome',
-        phone: draft.phone || 'Não informado',
+        phone: safePhone,
         email: draft.email || 'Não informado',
         cpf: draft.cpf || 'Não informado',
         address: draft.address || 'Não informado',
@@ -168,7 +176,13 @@ export default function ClientesPage() {
                   </label>
                   <label className="text-sm text-gray-600 dark:text-gray-300">
                     <span className="mb-1 block font-medium">Telefone</span>
-                    <input value={draft.phone} onChange={(event) => setDraft((current) => ({ ...current, phone: event.target.value }))} className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-blue-400 dark:border-gray-700 dark:bg-gray-800" />
+                    <input
+                      value={draft.phone}
+                      onChange={(event) => setDraft((current) => ({ ...current, phone: normalizePhone(event.target.value) }))}
+                      inputMode="numeric"
+                      placeholder="(31) 99123-4567"
+                      className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-blue-400 dark:border-gray-700 dark:bg-gray-800"
+                    />
                   </label>
                 </div>
                 <div className="grid gap-3 md:grid-cols-2">

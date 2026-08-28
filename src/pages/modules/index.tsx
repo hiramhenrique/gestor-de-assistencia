@@ -10,6 +10,7 @@ import OrcamentosPageComponent from './OrcamentosPage';
 import { useAuth } from '../../contexts/AuthContext';
 import { loadOrders, saveOrders, type OrderStatus, type ServiceOrder } from './ordersData';
 import { buildPublicStatusUrl, removePublicStatus, savePublicStatus } from './publicStatus';
+import { getWhatsAppTarget } from '../../utils/masks';
 
 const statusSequence: OrderStatus[] = ['Em análise', 'Aguardando aprovação', 'Aguardando peça', 'Em andamento', 'Concluída'];
 
@@ -73,6 +74,11 @@ export function AcompanhamentoPage() {
     loadOrders(user.id).then((items) => setOrders(items));
   }, [user?.id]);
 
+  useEffect(() => {
+    if (!user?.id || orders.length === 0) return;
+    void saveOrders(user.id, orders);
+  }, [orders, user?.id]);
+
   const pendingOrders = useMemo(
     () => orders.filter((order) => order.status !== 'Concluída').sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
     [orders],
@@ -116,32 +122,36 @@ export function AcompanhamentoPage() {
   };
 
   const openWhatsApp = async (order: ServiceOrder) => {
-    const digits = order.phone.replace(/\D/g, '');
-    if (!digits) return;
-
-    if (order.status === 'Concluída') {
-      await removePublicStatus(order.id);
-      const completionImage = `${window.location.origin}/status-concluido.svg`;
-      const finalMessage = `✅ Serviço foi concluído.\n${completionImage}`;
-      const link = `https://wa.me/55${digits}?text=${encodeURIComponent(finalMessage)}`;
-      window.open(link, '_blank', 'noopener,noreferrer');
-      return;
-    }
+    const targetPhone = getWhatsAppTarget(order.phone ?? '');
+    if (!targetPhone) return;
 
     const shareUrl = buildPublicStatusUrl(order.id);
-    await savePublicStatus({
-      orderId: order.id,
-      client: order.client,
-      device: order.device,
-      phone: order.phone,
-      status: order.status,
-      updatedAt: new Date().toISOString(),
-      shareUrl,
-    });
+    const link = order.status === 'Concluída'
+      ? `https://wa.me/${targetPhone}?text=${encodeURIComponent(`✅ Serviço foi concluído.\n${window.location.origin}/status-concluido.svg`)}`
+      : `https://wa.me/${targetPhone}?text=${encodeURIComponent(`Olá ${order.client}!\nAcompanhe o andamento do seu aparelho ${order.device} aqui:\n${shareUrl}`)}`;
 
-    const message = `Olá ${order.client}!\nAcompanhe o andamento do seu aparelho ${order.device} aqui:\n${shareUrl}`;
-    const link = `https://wa.me/55${digits}?text=${encodeURIComponent(message)}`;
-    window.open(link, '_blank', 'noopener,noreferrer');
+    const popup = window.open(link, '_blank', 'noopener,noreferrer');
+    if (!popup) {
+      window.location.href = link;
+    }
+
+    try {
+      if (order.status === 'Concluída') {
+        await removePublicStatus(order.id);
+      } else {
+        await savePublicStatus({
+          orderId: order.id,
+          client: order.client,
+          device: order.device,
+          phone: order.phone,
+          status: order.status,
+          updatedAt: new Date().toISOString(),
+          shareUrl,
+        });
+      }
+    } catch {
+      // ignora erro de persistência para não bloquear a abertura do WhatsApp
+    }
   };
 
   return (
@@ -203,8 +213,11 @@ export function AcompanhamentoPage() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => openWhatsApp(order)}
-                      disabled={!order.phone || order.phone === 'Não informado'}
+                      onClick={(event) => {
+                        event.preventDefault();
+                        void openWhatsApp(order);
+                      }}
+                      disabled={!getWhatsAppTarget(order.phone ?? '') || order.phone === 'Não informado'}
                       className="inline-flex items-center justify-center gap-2 rounded-lg bg-green-500 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-green-600 disabled:cursor-not-allowed disabled:bg-gray-300 dark:disabled:bg-gray-700"
                     >
                       <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className="h-4 w-4">
