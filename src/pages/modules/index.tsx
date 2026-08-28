@@ -83,6 +83,16 @@ export function AcompanhamentoPage() {
     await saveOrders(user?.id, updated);
   };
 
+  const moveStatus = async (orderId: string, direction: 'prev' | 'next') => {
+    const order = orders.find((item) => item.id === orderId);
+    if (!order) return;
+
+    const currentIndex = statusSequence.indexOf(order.status);
+    const targetIndex = direction === 'prev' ? Math.max(currentIndex - 1, 0) : Math.min(currentIndex + 1, statusSequence.length - 1);
+    if (currentIndex === targetIndex) return;
+    await updateStatus(orderId, statusSequence[targetIndex]);
+  };
+
   const openWhatsApp = (order: ServiceOrder) => {
     const digits = order.phone.replace(/\D/g, '');
     if (!digits) return;
@@ -114,6 +124,7 @@ export function AcompanhamentoPage() {
         ) : (
           pendingOrders.map((order) => {
             const activeIndex = statusSequence.indexOf(order.status);
+            const progressPercent = ((activeIndex + 1) / statusSequence.length) * 100;
 
             return (
               <div key={order.id} className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
@@ -140,33 +151,64 @@ export function AcompanhamentoPage() {
                   </button>
                 </div>
 
-                <div className="mt-4">
-                  <div className="mb-2 flex items-center justify-between text-[10px] font-semibold uppercase tracking-[0.15em] text-gray-500 dark:text-gray-400">
+                <div className="mt-5">
+                  <div className="mb-3 flex items-center justify-between text-[10px] font-semibold uppercase tracking-[0.15em] text-gray-500 dark:text-gray-400">
                     <span>Progresso</span>
                     <span>{activeIndex + 1}/{statusSequence.length}</span>
                   </div>
 
-                  <div className="grid grid-cols-5 gap-2">
-                    {statusSequence.map((status, index) => {
-                      const isActive = index <= activeIndex;
-                      const isCurrent = index === activeIndex;
+                  <div className="relative mb-6">
+                    <div className="absolute left-0 right-0 top-4 h-1 rounded-full bg-gray-200 dark:bg-gray-700" />
+                    <div
+                      className="absolute left-0 top-4 h-1 rounded-full bg-gradient-to-r from-cyan-500 via-violet-500 to-emerald-500 transition-all duration-300"
+                      style={{ width: `${progressPercent}%` }}
+                    />
 
-                      return (
-                        <button
-                          key={status}
-                          type="button"
-                          onClick={() => updateStatus(order.id, status)}
-                          className={`rounded-xl border px-2 py-2 text-center text-[10px] font-semibold transition ${
-                            isActive
-                              ? `${statusStyles[status]} border-transparent shadow-sm`
-                              : 'border-gray-200 bg-gray-100 text-gray-400 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-500'
-                          } ${isCurrent ? 'ring-2 ring-cyan-300 dark:ring-cyan-700' : ''}`}
-                          title={`Definir status como ${status}`}
-                        >
-                          {status}
-                        </button>
-                      );
-                    })}
+                    <div className="relative flex items-start justify-between">
+                      {statusSequence.map((status, index) => {
+                        const isComplete = index <= activeIndex;
+                        const isCurrent = index === activeIndex;
+
+                        return (
+                          <div key={status} className="flex w-full flex-col items-center gap-2">
+                            <div className={`flex h-8 w-8 items-center justify-center rounded-full border-2 text-[10px] font-bold transition ${
+                              isComplete
+                                ? 'border-cyan-500 bg-cyan-500 text-white shadow-md'
+                                : 'border-gray-300 bg-white text-gray-400 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-500'
+                            } ${isCurrent ? 'ring-4 ring-cyan-100 dark:ring-cyan-900/40' : ''}`}>
+                              {index + 1}
+                            </div>
+                            <span className={`max-w-[90px] text-center text-[10px] font-medium ${isCurrent ? 'text-cyan-700 dark:text-cyan-300' : 'text-gray-500 dark:text-gray-400'}`}>
+                              {status}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50 p-2 dark:border-gray-700 dark:bg-gray-800/60">
+                    <button
+                      type="button"
+                      onClick={() => moveStatus(order.id, 'prev')}
+                      disabled={activeIndex === 0}
+                      className="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-700 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-700"
+                    >
+                      Anterior
+                    </button>
+
+                    <span className="text-center text-xs font-semibold text-gray-700 dark:text-gray-200">
+                      {order.status}
+                    </span>
+
+                    <button
+                      type="button"
+                      onClick={() => moveStatus(order.id, 'next')}
+                      disabled={activeIndex === statusSequence.length - 1}
+                      className="inline-flex items-center justify-center rounded-lg bg-cyan-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Próximo
+                    </button>
                   </div>
                 </div>
 
