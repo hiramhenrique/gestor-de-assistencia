@@ -120,6 +120,25 @@ export function EstoquePage() {
     });
   }, [products, search, showOnlyMissing]);
 
+  const profitSummary = useMemo(() => products
+    .map((product) => {
+      const salePrice = product.salePrice ?? product.unitPrice ?? 0;
+      const costPrice = product.costPrice ?? 0;
+      const unitProfit = Math.max(0, salePrice - costPrice);
+      const totalProfit = product.quantity * unitProfit;
+
+      return {
+        id: product.id,
+        name: product.name,
+        quantity: product.quantity,
+        costPrice,
+        salePrice,
+        unitProfit,
+        totalProfit,
+      };
+    })
+    .sort((a, b) => b.totalProfit - a.totalProfit), [products]);
+
   return (
     <div className="space-y-5">
       <div className="flex flex-col gap-3 rounded-2xl border border-emerald-100 bg-white p-4 shadow-sm dark:border-emerald-900/40 dark:bg-gray-900 md:flex-row md:items-center md:justify-between">
@@ -167,6 +186,35 @@ export function EstoquePage() {
           >
             Em falta
           </button>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-emerald-100 bg-white p-4 shadow-sm dark:border-emerald-900/40 dark:bg-gray-900">
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="text-base font-bold text-gray-900 dark:text-gray-100">Visão de lucro por produto</h3>
+          <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{profitSummary.length} itens</span>
+        </div>
+
+        <div className="space-y-2">
+          {profitSummary.length === 0 ? (
+            <p className="text-sm text-gray-500 dark:text-gray-400">Nenhum produto cadastrado para analisar lucro.</p>
+          ) : (
+            profitSummary.slice(0, 6).map((product) => (
+              <div key={product.id} className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 dark:border-gray-700 dark:bg-gray-800/60">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-gray-900 dark:text-gray-100">{product.name}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {product.quantity} und · custo {formatCurrency(product.costPrice)} · venda {formatCurrency(product.salePrice)}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Lucro unit.</p>
+                  <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(product.unitProfit)}</p>
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400">Total {formatCurrency(product.totalProfit)}</p>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
 

@@ -9,7 +9,6 @@ import {
   ShoppingCart,
   Wallet,
   Activity,
-  XCircle,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
@@ -35,7 +34,6 @@ const NAV_ITEMS: { id: ModuleId; label: string; icon: React.ReactNode; badge?: n
   { id: 'vendas',         label: 'Vendas',                icon: <ShoppingCart     className="w-5 h-5" /> },
   { id: 'estoque',        label: 'Estoque',               icon: <Package          className="w-5 h-5" /> },
   { id: 'fluxo-caixa',    label: 'Fluxo de Caixa',       icon: <Wallet           className="w-5 h-5" /> },
-  { id: 'cancelamentos',  label: 'Cancelamentos',         icon: <XCircle          className="w-5 h-5" /> },
 ];
 
 export default function Sidebar({ active, onNavigate, collapsed, onToggleCollapse }: SidebarProps) {

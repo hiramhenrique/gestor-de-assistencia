@@ -13,7 +13,6 @@ const PAGE_TITLES: Record<ModuleId, string> = {
   vendas:         'Vendas',
   'fluxo-caixa':  'Fluxo de Caixa',
   acompanhamento: 'Acompanhamento de Serviços',
-  cancelamentos:  'Cancelamentos',
 };
 
 interface AppHeaderProps {

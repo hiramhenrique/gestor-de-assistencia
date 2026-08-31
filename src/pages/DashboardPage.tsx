@@ -6,7 +6,7 @@ import AppHeader from '../components/layout/AppHeader';
 import HomePage from './modules/HomePage';
 import {
   OrdensPage, ClientesPage, FuncionariosPage, EstoquePage, OrcamentosPage,
-  VendasPage, FluxoCaixaPage, AcompanhamentoPage, CancelamentosPage,
+  VendasPage, FluxoCaixaPage, AcompanhamentoPage,
 } from './modules';
 import { FormulariosPage } from './modules';
 
@@ -28,7 +28,6 @@ export default function DashboardPage() {
       case 'vendas':         return <VendasPage />;
       case 'fluxo-caixa':    return <FluxoCaixaPage />;
       case 'acompanhamento': return <AcompanhamentoPage />;
-      case 'cancelamentos':  return <CancelamentosPage />;
       default:               return <HomePage onNavigate={setActive} userName={firstName} />;
     }
   }

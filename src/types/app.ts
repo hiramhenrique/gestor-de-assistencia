@@ -8,5 +8,4 @@ export type ModuleId =
   | 'orcamentos'
   | 'vendas'
   | 'fluxo-caixa'
-  | 'acompanhamento'
-  | 'cancelamentos';
+  | 'acompanhamento';
