@@ -412,6 +412,7 @@ export function VendasPage() {
   }, [user?.id]);
 
   const availableProducts = stock.filter((item) => item.quantity > 0);
+  const selectedProduct = availableProducts.find((item) => item.id === selectedProductId) ?? null;
 
   useEffect(() => {
     if (availableProducts.length === 0) {
@@ -425,30 +426,26 @@ export function VendasPage() {
     }
   }, [availableProducts, selectedProductId]);
 
-  const filteredProducts = useMemo(() => {
+  const matchedProduct = useMemo(() => {
     const normalizedSearch = productSearch.trim().toLowerCase();
     if (!normalizedSearch) {
-      return availableProducts;
+      return null;
     }
 
-    return availableProducts.filter((product) => product.name.toLowerCase().includes(normalizedSearch));
+    return availableProducts.find((product) => product.name.toLowerCase() === normalizedSearch)
+      ?? availableProducts.find((product) => product.name.toLowerCase().includes(normalizedSearch))
+      ?? null;
   }, [availableProducts, productSearch]);
 
   useEffect(() => {
     if (!productSearch.trim()) return;
-
-    const normalizedSearch = productSearch.trim().toLowerCase();
-    const exactMatch = availableProducts.find((product) => product.name.toLowerCase() === normalizedSearch);
-    const fuzzyMatch = availableProducts.find((product) => product.name.toLowerCase().includes(normalizedSearch));
-    const nextProduct = exactMatch ?? fuzzyMatch;
-
-    if (nextProduct) {
-      setSelectedProductId(nextProduct.id);
+    if (matchedProduct) {
+      setSelectedProductId(matchedProduct.id);
     }
-  }, [availableProducts, productSearch]);
+  }, [matchedProduct, productSearch]);
 
   const addProductToSale = () => {
-    const product = stock.find((item) => item.id === selectedProductId) ?? filteredProducts[0] ?? null;
+    const product = selectedProduct ?? matchedProduct ?? availableProducts[0] ?? null;
     if (!product) return;
 
     const normalizedQty = Math.max(1, Number(quantity) || 1);
@@ -537,8 +534,16 @@ export function VendasPage() {
                   <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">⌕</span>
                 </div>
 
-                {productSearch.trim() && filteredProducts.length === 0 && (
-                  <p className="mt-2 text-xs text-red-600 dark:text-red-400">Nenhum produto encontrado para essa busca.</p>
+                {productSearch.trim() && (
+                  matchedProduct ? (
+                    <p className="mt-2 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                      Produto selecionado: {matchedProduct.name}
+                    </p>
+                  ) : (
+                    <p className="mt-2 text-xs text-red-600 dark:text-red-400">
+                      Nenhum produto encontrado na lista de estoque.
+                    </p>
+                  )
                 )}
               </div>
 
