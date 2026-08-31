@@ -120,24 +120,21 @@ export function EstoquePage() {
     });
   }, [products, search, showOnlyMissing]);
 
-  const profitSummary = useMemo(() => products
-    .map((product) => {
-      const salePrice = product.salePrice ?? product.unitPrice ?? 0;
-      const costPrice = product.costPrice ?? 0;
-      const unitProfit = Math.max(0, salePrice - costPrice);
-      const totalProfit = product.quantity * unitProfit;
+  const [expandedProductId, setExpandedProductId] = useState<string | null>(null);
 
-      return {
-        id: product.id,
-        name: product.name,
-        quantity: product.quantity,
-        costPrice,
-        salePrice,
-        unitProfit,
-        totalProfit,
-      };
-    })
-    .sort((a, b) => b.totalProfit - a.totalProfit), [products]);
+  const getProfitMetrics = (product: StockItem) => {
+    const salePrice = product.salePrice ?? product.unitPrice ?? 0;
+    const costPrice = product.costPrice ?? 0;
+    const unitProfit = Math.max(0, salePrice - costPrice);
+    const marginPercent = salePrice > 0 ? (unitProfit / salePrice) * 100 : 0;
+    return {
+      salePrice,
+      costPrice,
+      unitProfit,
+      marginPercent,
+      totalProfit: product.quantity * unitProfit,
+    };
+  };
 
   return (
     <div className="space-y-5">
@@ -189,35 +186,6 @@ export function EstoquePage() {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-emerald-100 bg-white p-4 shadow-sm dark:border-emerald-900/40 dark:bg-gray-900">
-        <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-base font-bold text-gray-900 dark:text-gray-100">Visão de lucro por produto</h3>
-          <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{profitSummary.length} itens</span>
-        </div>
-
-        <div className="space-y-2">
-          {profitSummary.length === 0 ? (
-            <p className="text-sm text-gray-500 dark:text-gray-400">Nenhum produto cadastrado para analisar lucro.</p>
-          ) : (
-            profitSummary.slice(0, 6).map((product) => (
-              <div key={product.id} className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 dark:border-gray-700 dark:bg-gray-800/60">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-gray-900 dark:text-gray-100">{product.name}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {product.quantity} und · custo {formatCurrency(product.costPrice)} · venda {formatCurrency(product.salePrice)}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Lucro unit.</p>
-                  <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(product.unitProfit)}</p>
-                  <p className="text-[11px] text-gray-500 dark:text-gray-400">Total {formatCurrency(product.totalProfit)}</p>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      </div>
-
       <div className="space-y-3">
         {filteredProducts.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-emerald-200 bg-white p-8 text-center text-sm text-gray-500 dark:border-emerald-800 dark:bg-gray-900 dark:text-gray-400">
@@ -228,48 +196,83 @@ export function EstoquePage() {
         ) : (
           filteredProducts.map((product) => {
             const isLowStock = product.quantity === 0;
+            const metrics = getProfitMetrics(product);
+            const isExpanded = expandedProductId === product.id;
 
             return (
               <div
                 key={product.id}
-                className={`flex flex-col gap-3 rounded-2xl border p-4 shadow-sm md:flex-row md:items-center md:justify-between ${
+                className={`flex flex-col gap-3 rounded-2xl border p-4 shadow-sm ${
                   isLowStock
                     ? 'border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/20'
                     : 'border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900'
                 }`}
               >
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-3">
-                    <p className="truncate text-base font-bold text-gray-900 dark:text-gray-100">{product.name}</p>
-                    <span className="text-sm text-gray-600 dark:text-gray-300">{product.quantity} und</span>
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <p className="truncate text-base font-bold text-gray-900 dark:text-gray-100">{product.name}</p>
+                      <span className="text-sm text-gray-600 dark:text-gray-300">{product.quantity} und</span>
+                      <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">{formatCurrency(metrics.salePrice)}</span>
+                    </div>
+
+                    {isLowStock && (
+                      <div className="mt-2 text-xs font-semibold text-red-600 dark:text-red-400">
+                        Produto em falta
+                      </div>
+                    )}
                   </div>
 
-                  {isLowStock && (
-                    <div className="mt-2 text-xs font-semibold text-red-600 dark:text-red-400">
-                      Produto em falta
+                  <div className="flex items-center justify-end gap-1 md:ml-4">
+                    <button
+                      type="button"
+                      onClick={() => setExpandedProductId((current) => current === product.id ? null : product.id)}
+                      className="inline-flex items-center justify-center rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1.5 text-[11px] font-medium text-emerald-700 transition hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-300 dark:hover:bg-emerald-900/30"
+                    >
+                      {isExpanded ? 'Fechar' : 'Detalhe'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => openEditModal(product)}
+                      className="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-2 py-1.5 text-[11px] font-medium text-gray-700 transition hover:bg-gray-100 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                    >
+                      Editar
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => removeProduct(product.id)}
+                      className="ml-1 inline-flex h-7 w-7 items-center justify-center rounded-md border border-red-200 bg-red-50 text-sm font-bold text-red-600 transition hover:bg-red-100 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300 dark:hover:bg-red-900/40"
+                      aria-label={`Remover ${product.name}`}
+                      title="Remover produto"
+                    >
+                      ×
+                    </button>
+                  </div>
+                </div>
+
+                {isExpanded && (
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-800 dark:bg-emerald-950/20">
+                    <div className="grid gap-3 text-sm sm:grid-cols-2 md:grid-cols-4">
+                      <div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Custo</p>
+                        <p className="font-semibold text-gray-900 dark:text-gray-100">{formatCurrency(metrics.costPrice)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Valor final</p>
+                        <p className="font-semibold text-gray-900 dark:text-gray-100">{formatCurrency(metrics.salePrice)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Lucro</p>
+                        <p className="font-semibold text-emerald-700 dark:text-emerald-300">{formatCurrency(metrics.unitProfit)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Margem</p>
+                        <p className="font-semibold text-emerald-700 dark:text-emerald-300">{metrics.marginPercent.toFixed(1)}%</p>
+                      </div>
                     </div>
-                  )}
-                </div>
-
-                <div className="flex items-center justify-end gap-1 md:ml-4">
-                  <button
-                    type="button"
-                    onClick={() => openEditModal(product)}
-                    className="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-2 py-1.5 text-[11px] font-medium text-gray-700 transition hover:bg-gray-100 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
-                  >
-                    Editar
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => removeProduct(product.id)}
-                    className="ml-1 inline-flex h-7 w-7 items-center justify-center rounded-md border border-red-200 bg-red-50 text-sm font-bold text-red-600 transition hover:bg-red-100 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300 dark:hover:bg-red-900/40"
-                    aria-label={`Remover ${product.name}`}
-                    title="Remover produto"
-                  >
-                    ×
-                  </button>
-                </div>
+                  </div>
+                )}
               </div>
             );
           })
