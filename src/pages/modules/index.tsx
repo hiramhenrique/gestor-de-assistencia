@@ -494,7 +494,8 @@ export function VendasPage() {
 
   const totalItems = saleItems.reduce((sum, item) => sum + item.quantity, 0);
   const subtotalValue = saleItems.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
-  const totalValue = Math.max(0, subtotalValue - discount);
+  const safeDiscount = Math.min(Math.max(0, discount), subtotalValue);
+  const totalValue = Math.max(0, subtotalValue - safeDiscount);
 
   const openSaleConfirmation = () => {
     if (saleItems.length === 0) return;
@@ -509,7 +510,7 @@ export function VendasPage() {
       createdAt: new Date().toISOString(),
       items: saleItems.map((item) => ({ ...item })),
       paymentMethod,
-      discount,
+      discount: safeDiscount,
       subtotal: subtotalValue,
       total: totalValue,
       printed,
@@ -700,7 +701,7 @@ export function VendasPage() {
             </div>
             <div className="mt-2 flex items-center justify-between text-sm text-gray-600 dark:text-gray-300">
               <span>Desconto</span>
-              <span>- {formatCurrency(discount)}</span>
+              <span>- {formatCurrency(safeDiscount)}</span>
             </div>
             <div className="mt-3 flex items-center justify-between border-t border-gray-200 pt-3 dark:border-gray-700">
               <span>Total</span>
@@ -799,7 +800,8 @@ export function VendasPage() {
                   onChange={(event) => {
                     const raw = event.target.value.replace(',', '.');
                     const parsed = Number(raw);
-                    setDiscount(raw === '' ? 0 : Number.isFinite(parsed) ? parsed : discount);
+                    const nextValue = raw === '' ? 0 : Number.isFinite(parsed) ? Math.min(parsed, subtotalValue) : discount;
+                    setDiscount(nextValue);
                   }}
                   className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none transition focus:border-green-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
                   placeholder="Ex: 10,00"
@@ -813,7 +815,7 @@ export function VendasPage() {
             </div>
             <div className="mt-2 flex items-center justify-between text-sm text-gray-600 dark:text-gray-300">
               <span>Desconto</span>
-              <span>- {formatCurrency(discount)}</span>
+              <span>- {formatCurrency(safeDiscount)}</span>
             </div>
             <div className="mt-2 flex items-center justify-between">
               <span className="text-sm font-medium text-gray-600 dark:text-gray-300">Total</span>
