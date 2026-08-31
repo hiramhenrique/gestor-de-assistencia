@@ -775,7 +775,47 @@ export function VendasPage() {
               ))}
             </div>
 
+            <div className="mt-4 space-y-4">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-200">Forma de pagamento</label>
+                <select
+                  value={paymentMethod}
+                  onChange={(event) => setPaymentMethod(event.target.value)}
+                  className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none transition focus:border-green-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                >
+                  <option value="Dinheiro">Dinheiro</option>
+                  <option value="Cartão">Cartão</option>
+                  <option value="Pix">Pix</option>
+                  <option value="Transferência">Transferência</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-200">Desconto</label>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={discount === 0 ? '' : String(discount)}
+                  onChange={(event) => {
+                    const raw = event.target.value.replace(',', '.');
+                    const parsed = Number(raw);
+                    setDiscount(raw === '' ? 0 : Number.isFinite(parsed) ? parsed : discount);
+                  }}
+                  className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none transition focus:border-green-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                  placeholder="Ex: 10,00"
+                />
+              </div>
+            </div>
+
             <div className="mt-4 flex items-center justify-between border-t border-gray-200 pt-4 dark:border-gray-700">
+              <span className="text-sm font-medium text-gray-600 dark:text-gray-300">Subtotal</span>
+              <span className="text-base font-semibold text-gray-900 dark:text-gray-100">{formatCurrency(subtotalValue)}</span>
+            </div>
+            <div className="mt-2 flex items-center justify-between text-sm text-gray-600 dark:text-gray-300">
+              <span>Desconto</span>
+              <span>- {formatCurrency(discount)}</span>
+            </div>
+            <div className="mt-2 flex items-center justify-between">
               <span className="text-sm font-medium text-gray-600 dark:text-gray-300">Total</span>
               <span className="text-2xl font-bold text-gray-900 dark:text-gray-100">{formatCurrency(totalValue)}</span>
             </div>
@@ -783,16 +823,14 @@ export function VendasPage() {
             <div className="mt-5 flex justify-end gap-2">
               <button
                 type="button"
-                onClick={() => setShowSaleModal(false)}
+                onClick={() => finalizeSale(false)}
                 className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800"
               >
                 Não imprimir
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  setShowSaleModal(false);
-                }}
+                onClick={() => finalizeSale(true)}
                 className="rounded-lg bg-green-600 px-3 py-2 text-sm font-semibold text-white hover:bg-green-700"
               >
                 Imprimir
