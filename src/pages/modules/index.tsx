@@ -95,9 +95,20 @@ export function EstoquePage() {
       : item));
   };
 
+  const openEditModal = (product: StockItem) => {
+    setEditingProduct(product);
+    setEditDraft({
+      quantity: product.quantity,
+      unitPrice: product.unitPrice,
+    });
+  };
+
   const removeProduct = (id: string) => {
     setProducts((current) => current.filter((item) => item.id !== id));
   };
+
+  const [editingProduct, setEditingProduct] = useState<StockItem | null>(null);
+  const [editDraft, setEditDraft] = useState({ quantity: 0, unitPrice: 0 });
 
   const filteredProducts = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
@@ -218,7 +229,7 @@ export function EstoquePage() {
 
                   <button
                     type="button"
-                    onClick={() => updateProduct(product.id, { unitPrice: Number(prompt('Valor por unidade:', String(product.unitPrice))) || 0 })}
+                    onClick={() => openEditModal(product)}
                     className="ml-2 inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-2 py-1.5 text-[11px] font-medium text-gray-700 transition hover:bg-gray-100 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
                   >
                     Editar valor
@@ -314,6 +325,88 @@ export function EstoquePage() {
                 className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Salvar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editingProduct && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3">
+          <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-5 shadow-2xl dark:border-gray-700 dark:bg-gray-900">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">Editar produto</h3>
+              <button
+                type="button"
+                onClick={() => setEditingProduct(null)}
+                className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+                aria-label="Fechar modal de edição"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-200">Nome</label>
+                <input
+                  type="text"
+                  value={editingProduct.name}
+                  disabled
+                  className="w-full rounded-xl border border-gray-300 bg-gray-100 px-3 py-2.5 text-sm text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-200">Valor por unidade</label>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={editDraft.unitPrice === 0 ? '' : String(editDraft.unitPrice)}
+                  onChange={(event) => {
+                    const raw = event.target.value.replace(',', '.');
+                    const parsed = Number(raw);
+                    setEditDraft((current) => ({ ...current, unitPrice: raw === '' ? 0 : Number.isFinite(parsed) ? parsed : current.unitPrice }));
+                  }}
+                  className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none focus:border-emerald-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-200">Quantidade</label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={editDraft.quantity === 0 ? '' : String(editDraft.quantity)}
+                  onChange={(event) => {
+                    const raw = event.target.value.replace(/[^0-9]/g, '');
+                    setEditDraft((current) => ({ ...current, quantity: raw === '' ? 0 : Number(raw) }));
+                  }}
+                  className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none focus:border-emerald-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                />
+              </div>
+            </div>
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setEditingProduct(null)}
+                className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  updateProduct(editingProduct.id, {
+                    quantity: Math.max(0, Number(editDraft.quantity) || 0),
+                    unitPrice: Math.max(0, Number(editDraft.unitPrice) || 0),
+                  });
+                  setEditingProduct(null);
+                }}
+                className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+              >
+                Salvar alterações
               </button>
             </div>
           </div>

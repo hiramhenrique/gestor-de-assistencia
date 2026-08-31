@@ -8,6 +8,15 @@ import { useAuth } from '../../contexts/AuthContext';
 import type { ModuleId } from '../../types/app';
 import { loadClients, type ClientRecord } from './clientsData';
 import { loadOrders, type ServiceOrder } from './ordersData';
+import { loadUserCollection } from '../../lib/userData';
+
+interface StockSummaryItem {
+  id: string;
+  name: string;
+  quantity: number;
+  unitPrice: number;
+  updatedAt: string;
+}
 
 interface HomePageProps {
   onNavigate: (id: ModuleId) => void;
@@ -35,7 +44,7 @@ const QUICK_ACTIONS: { id?: ModuleId; label: string; icon: ReactNode; color: str
   { id: 'ordens', label: 'Nova OS', icon: <ClipboardList className="w-5 h-5" />, color: 'violet', action: 'navigate' },
   { id: 'clientes', label: 'Novo Cliente', icon: <Users className="w-5 h-5" />, color: 'blue', action: 'navigate' },
   { label: 'Orçamento', icon: <ClipboardList className="w-5 h-5" />, color: 'cyan', action: 'disabled' },
-  { label: 'Estoque', icon: <Package className="w-5 h-5" />, color: 'green', action: 'disabled' },
+  { id: 'estoque', label: 'Estoque', icon: <Package className="w-5 h-5" />, color: 'green', action: 'navigate' },
   { label: 'Venda', icon: <ClipboardList className="w-5 h-5" />, color: 'emerald', action: 'disabled' },
   { label: 'Fluxo de Caixa', icon: <Activity className="w-5 h-5" />, color: 'red', action: 'disabled' },
 ];
@@ -70,12 +79,18 @@ export default function HomePage({ onNavigate, userName }: HomePageProps) {
   const greeting = hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite';
   const [orders, setOrders] = useState<ServiceOrder[]>([]);
   const [clients, setClients] = useState<ClientRecord[]>([]);
+  const [missingStockItems, setMissingStockItems] = useState(0);
 
   useEffect(() => {
     if (!user?.id) return;
-    Promise.all([loadOrders(user.id), loadClients(user.id)]).then(([nextOrders, nextClients]) => {
+    Promise.all([
+      loadOrders(user.id),
+      loadClients(user.id),
+      loadUserCollection<StockSummaryItem>(user.id, 'estoque'),
+    ]).then(([nextOrders, nextClients, nextStock]) => {
       setOrders(nextOrders);
       setClients(nextClients);
+      setMissingStockItems(nextStock.filter((item) => item.quantity === 0).length);
     });
   }, [user?.id]);
 
@@ -271,8 +286,10 @@ export default function HomePage({ onNavigate, userName }: HomePageProps) {
           <div className="flex items-start gap-3 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-100 dark:border-yellow-800">
             <Package className="w-4 h-4 text-yellow-600 mt-0.5 shrink-0" />
             <div>
-              <p className="text-xs font-semibold text-yellow-700 dark:text-yellow-400">Estoque em revisão</p>
-              <p className="text-xs text-yellow-600 dark:text-yellow-500 mt-0.5">Acompanhe peças e componentes sem ação no momento.</p>
+              <p className="text-xs font-semibold text-yellow-700 dark:text-yellow-400">
+                {missingStockItems === 1 ? '1 produto em falta' : `${missingStockItems} produtos em falta`}
+              </p>
+              <p className="text-xs text-yellow-600 dark:text-yellow-500 mt-0.5">Estoque em revisão: itens sem quantidade no momento.</p>
             </div>
           </div>
           <div className="flex items-start gap-3 p-3 bg-violet-50 dark:bg-violet-900/20 rounded-lg border border-violet-100 dark:border-violet-800">
