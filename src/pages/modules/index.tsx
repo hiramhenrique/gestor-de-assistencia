@@ -434,8 +434,21 @@ export function VendasPage() {
     return availableProducts.filter((product) => product.name.toLowerCase().includes(normalizedSearch));
   }, [availableProducts, productSearch]);
 
+  useEffect(() => {
+    if (!productSearch.trim()) return;
+
+    const normalizedSearch = productSearch.trim().toLowerCase();
+    const exactMatch = availableProducts.find((product) => product.name.toLowerCase() === normalizedSearch);
+    const fuzzyMatch = availableProducts.find((product) => product.name.toLowerCase().includes(normalizedSearch));
+    const nextProduct = exactMatch ?? fuzzyMatch;
+
+    if (nextProduct) {
+      setSelectedProductId(nextProduct.id);
+    }
+  }, [availableProducts, productSearch]);
+
   const addProductToSale = () => {
-    const product = stock.find((item) => item.id === selectedProductId);
+    const product = stock.find((item) => item.id === selectedProductId) ?? filteredProducts[0] ?? null;
     if (!product) return;
 
     const normalizedQty = Math.max(1, Number(quantity) || 1);
