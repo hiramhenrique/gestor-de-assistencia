@@ -402,6 +402,7 @@ export function VendasPage() {
   const [selectedProductId, setSelectedProductId] = useState('');
   const [productSearch, setProductSearch] = useState('');
   const [quantity, setQuantity] = useState(1);
+  const [showSaleModal, setShowSaleModal] = useState(false);
   const [saleItems, setSaleItems] = useState<Array<{ id: string; name: string; quantity: number; unitPrice: number }>>([]);
 
   useEffect(() => {
@@ -479,6 +480,11 @@ export function VendasPage() {
   const totalItems = saleItems.reduce((sum, item) => sum + item.quantity, 0);
   const totalValue = saleItems.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
 
+  const openSaleConfirmation = () => {
+    if (saleItems.length === 0) return;
+    setShowSaleModal(true);
+  };
+
   return (
     <div className="space-y-5">
       <div className="flex flex-col gap-3 rounded-2xl border border-green-100 bg-white p-4 shadow-sm dark:border-green-900/40 dark:bg-gray-900 md:flex-row md:items-center md:justify-between">
@@ -487,19 +493,9 @@ export function VendasPage() {
             <ShoppingCart className="h-5 w-5" />
           </div>
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-green-600 dark:text-green-400">Vendas</p>
-            <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Caixa / Nota de venda</h2>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Vendas</h2>
           </div>
         </div>
-
-        <button
-          type="button"
-          disabled
-          className="inline-flex items-center justify-center gap-2 rounded-xl border border-gray-300 bg-gray-100 px-4 py-2.5 text-sm font-semibold text-gray-500 shadow-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400"
-        >
-          <ShoppingCart className="h-4 w-4" />
-          Imprimir
-        </button>
       </div>
 
       <div className="grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">
@@ -646,8 +642,73 @@ export function VendasPage() {
               <span className="text-xl font-bold text-gray-900 dark:text-gray-100">{formatCurrency(totalValue)}</span>
             </div>
           </div>
+
+          <button
+            type="button"
+            disabled={saleItems.length === 0}
+            onClick={openSaleConfirmation}
+            className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-green-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:bg-gray-300 dark:disabled:bg-gray-700"
+          >
+            Concluir venda
+          </button>
         </div>
       </div>
+
+      {showSaleModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3">
+          <div className="w-full max-w-lg rounded-2xl border border-gray-200 bg-white p-5 shadow-2xl dark:border-gray-700 dark:bg-gray-900">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">Resumo da venda</h3>
+              <button
+                type="button"
+                onClick={() => setShowSaleModal(false)}
+                className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+                aria-label="Fechar resumo da venda"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3 rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800/60">
+              {saleItems.map((item) => (
+                <div key={item.id} className="flex items-center justify-between gap-3 text-sm">
+                  <div>
+                    <p className="font-medium text-gray-900 dark:text-gray-100">{item.name}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{item.quantity}x · {formatCurrency(item.unitPrice)}</p>
+                  </div>
+                  <span className="font-semibold text-gray-900 dark:text-gray-100">
+                    {formatCurrency(item.quantity * item.unitPrice)}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-4 flex items-center justify-between border-t border-gray-200 pt-4 dark:border-gray-700">
+              <span className="text-sm font-medium text-gray-600 dark:text-gray-300">Total</span>
+              <span className="text-2xl font-bold text-gray-900 dark:text-gray-100">{formatCurrency(totalValue)}</span>
+            </div>
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowSaleModal(false)}
+                className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800"
+              >
+                Não imprimir
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowSaleModal(false);
+                }}
+                className="rounded-lg bg-green-600 px-3 py-2 text-sm font-semibold text-white hover:bg-green-700"
+              >
+                Imprimir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
