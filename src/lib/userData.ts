@@ -1,7 +1,7 @@
 import { collection, deleteDoc, doc, getDocs, setDoc } from 'firebase/firestore';
 import { db } from './firebase';
 
-export type UserCollectionName = 'clientes' | 'funcionarios' | 'ordens' | 'formularios' | 'orcamentos';
+export type UserCollectionName = 'clientes' | 'funcionarios' | 'ordens' | 'formularios' | 'orcamentos' | 'estoque';
 
 const COLLECTION_DEFAULTS: Record<UserCollectionName, string> = {
   clientes: 'clientes',
@@ -9,6 +9,7 @@ const COLLECTION_DEFAULTS: Record<UserCollectionName, string> = {
   ordens: 'ordens',
   formularios: 'formularios',
   orcamentos: 'orcamentos',
+  estoque: 'estoque',
 };
 
 const COLLECTION_ENV_KEYS: Record<UserCollectionName, string> = {
@@ -17,6 +18,7 @@ const COLLECTION_ENV_KEYS: Record<UserCollectionName, string> = {
   ordens: 'VITE_FIRESTORE_COLLECTION_ORDERS',
   formularios: 'VITE_FIRESTORE_COLLECTION_FORMS',
   orcamentos: 'VITE_FIRESTORE_COLLECTION_QUOTES',
+  estoque: 'VITE_FIRESTORE_COLLECTION_STOCK',
 };
 
 function getCollectionName(name: UserCollectionName) {

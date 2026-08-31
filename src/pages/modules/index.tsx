@@ -11,6 +11,14 @@ import { useAuth } from '../../contexts/AuthContext';
 import { loadOrders, saveOrders, type OrderStatus, type ServiceOrder } from './ordersData';
 import { buildPublicStatusUrl, savePublicStatus } from './publicStatus';
 import { getWhatsAppTarget } from '../../utils/masks';
+import { loadUserCollection, saveUserCollection } from '../../lib/userData';
+
+interface StockItem {
+  id: string;
+  name: string;
+  quantity: number;
+  updatedAt: string;
+}
 
 const statusSequence: OrderStatus[] = ['Em análise', 'Aguardando aprovação', 'Aguardando peça', 'Em andamento', 'Concluída'];
 
@@ -35,12 +43,193 @@ export function FuncionariosPage() {
 }
 
 export function EstoquePage() {
-  return <PlaceholderPage
-    title="Estoque"
-    description="Controle de peças, componentes e produtos. Alertas de estoque mínimo automáticos."
-    icon={<Package className="w-9 h-9 text-emerald-600 dark:text-emerald-400" />}
-    color="bg-emerald-100 dark:bg-emerald-900/30"
-  />;
+  const { user } = useAuth();
+  const [products, setProducts] = useState<StockItem[]>([]);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [draft, setDraft] = useState({ name: '', quantity: 1 });
+
+  useEffect(() => {
+    if (!user?.id) return;
+    void loadUserCollection<StockItem>(user.id, 'estoque').then((items) => setProducts(items));
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    void saveUserCollection(user.id, 'estoque', products);
+  }, [products, user?.id]);
+
+  const handleAddProduct = () => {
+    const cleanName = draft.name.trim();
+    if (!cleanName) return;
+
+    const nextItem: StockItem = {
+      id: crypto.randomUUID(),
+      name: cleanName,
+      quantity: Math.max(0, Number(draft.quantity) || 0),
+      updatedAt: new Date().toISOString(),
+    };
+
+    setProducts((current) => [nextItem, ...current]);
+    setDraft({ name: '', quantity: 1 });
+    setShowAddModal(false);
+  };
+
+  const updateQuantity = (id: string, amount: number) => {
+    setProducts((current) => current.map((item) => item.id === id
+      ? { ...item, quantity: Math.max(0, item.quantity + amount), updatedAt: new Date().toISOString() }
+      : item));
+  };
+
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-col gap-3 rounded-2xl border border-emerald-100 bg-white p-4 shadow-sm dark:border-emerald-900/40 dark:bg-gray-900 md:flex-row md:items-center md:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+            <Package className="h-5 w-5" />
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-600 dark:text-emerald-400">Estoque</p>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Produtos em estoque</h2>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setShowAddModal(true)}
+          className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700"
+        >
+          <Package className="h-4 w-4" />
+          Adicionar produto
+        </button>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {products.length === 0 ? (
+          <div className="md:col-span-2 xl:col-span-3 rounded-2xl border border-dashed border-emerald-200 bg-white p-8 text-center text-sm text-gray-500 dark:border-emerald-800 dark:bg-gray-900 dark:text-gray-400">
+            Nenhum produto cadastrado ainda. Adicione o primeiro item para controlar o estoque.
+          </div>
+        ) : (
+          products.map((product) => {
+            const isLowStock = product.quantity === 0;
+
+            return (
+              <div
+                key={product.id}
+                className={`rounded-2xl border p-4 shadow-sm ${
+                  isLowStock
+                    ? 'border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/20'
+                    : 'border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-lg font-bold text-gray-900 dark:text-gray-100">{product.name}</p>
+                    <p className={`mt-2 text-sm font-medium ${isLowStock ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                      {isLowStock ? 'Produto em falta' : `Quantidade em estoque: ${product.quantity}`}
+                    </p>
+                  </div>
+
+                  <div className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
+                    {product.quantity}
+                  </div>
+                </div>
+
+                <div className="mt-4 flex items-center justify-between gap-2">
+                  <button
+                    type="button"
+                    onClick={() => updateQuantity(product.id, -1)}
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-300 bg-white text-xl font-bold text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
+                    aria-label={`Diminuir quantidade de ${product.name}`}
+                  >
+                    −
+                  </button>
+
+                  <span className={`text-sm font-bold ${isLowStock ? 'text-red-600 dark:text-red-400' : 'text-gray-700 dark:text-gray-200'}`}>
+                    {product.quantity}
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={() => updateQuantity(product.id, 1)}
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-600 text-xl font-bold text-white hover:bg-emerald-700"
+                    aria-label={`Aumentar quantidade de ${product.name}`}
+                  >
+                    +
+                  </button>
+                </div>
+
+                {isLowStock && (
+                  <div className="mt-4 rounded-lg border border-red-200 bg-red-100 px-3 py-2 text-xs font-semibold text-red-700 dark:border-red-700 dark:bg-red-900/30 dark:text-red-300">
+                    Produto em falta
+                  </div>
+                )}
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {showAddModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3">
+          <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-5 shadow-2xl dark:border-gray-700 dark:bg-gray-900">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">Adicionar produto</h3>
+              <button
+                type="button"
+                onClick={() => setShowAddModal(false)}
+                className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+                aria-label="Fechar modal"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-200">Nome do produto</label>
+                <input
+                  type="text"
+                  value={draft.name}
+                  onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))}
+                  className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none ring-0 transition focus:border-emerald-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                  placeholder="Ex: Tela Samsung S25"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-200">Quantidade inicial</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={draft.quantity}
+                  onChange={(event) => setDraft((current) => ({ ...current, quantity: Number(event.target.value) || 0 }))}
+                  className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none ring-0 transition focus:border-emerald-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                />
+              </div>
+            </div>
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowAddModal(false)}
+                className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleAddProduct}
+                disabled={!draft.name.trim()}
+                className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Salvar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function OrcamentosPage() {
