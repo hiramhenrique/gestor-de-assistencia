@@ -211,28 +211,10 @@ export function EstoquePage() {
                 <div className="flex items-center justify-end gap-1 md:ml-4">
                   <button
                     type="button"
-                    onClick={() => updateQuantity(product.id, -1)}
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-gray-300 bg-white text-sm font-bold text-gray-700 transition hover:bg-gray-100 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
-                    aria-label={`Diminuir quantidade de ${product.name}`}
-                  >
-                    −
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => updateQuantity(product.id, 1)}
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-emerald-600 text-sm font-bold text-white transition hover:bg-emerald-700"
-                    aria-label={`Aumentar quantidade de ${product.name}`}
-                  >
-                    +
-                  </button>
-
-                  <button
-                    type="button"
                     onClick={() => openEditModal(product)}
-                    className="ml-2 inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-2 py-1.5 text-[11px] font-medium text-gray-700 transition hover:bg-gray-100 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                    className="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-2 py-1.5 text-[11px] font-medium text-gray-700 transition hover:bg-gray-100 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
                   >
-                    Editar valor
+                    Editar
                   </button>
 
                   <button
