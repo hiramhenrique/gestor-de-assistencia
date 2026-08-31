@@ -399,16 +399,31 @@ export function OrcamentosPage() {
 export function VendasPage() {
   const { user } = useAuth();
   const [stock, setStock] = useState<StockItem[]>([]);
+  const [saleHistory, setSaleHistory] = useState<Array<{
+    id: string;
+    createdAt: string;
+    items: Array<{ id: string; name: string; quantity: number; unitPrice: number }>;
+    paymentMethod: string;
+    discount: number;
+    subtotal: number;
+    total: number;
+    printed: boolean;
+  }>>([]);
   const [selectedProductId, setSelectedProductId] = useState('');
   const [productSearch, setProductSearch] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [showSaleModal, setShowSaleModal] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState('Dinheiro');
+  const [discount, setDiscount] = useState(0);
   const [saleItems, setSaleItems] = useState<Array<{ id: string; name: string; quantity: number; unitPrice: number }>>([]);
 
   useEffect(() => {
     if (!user?.id) return;
     void loadUserCollection<StockItem>(user.id, 'estoque').then((items) => {
       setStock(items);
+    });
+    void loadUserCollection<{ id: string; createdAt: string; items: Array<{ id: string; name: string; quantity: number; unitPrice: number }>; paymentMethod: string; discount: number; subtotal: number; total: number; printed: boolean }>(user.id, 'vendas').then((items) => {
+      setSaleHistory(items);
     });
   }, [user?.id]);
 
@@ -478,11 +493,53 @@ export function VendasPage() {
   };
 
   const totalItems = saleItems.reduce((sum, item) => sum + item.quantity, 0);
-  const totalValue = saleItems.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
+  const subtotalValue = saleItems.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
+  const totalValue = Math.max(0, subtotalValue - discount);
 
   const openSaleConfirmation = () => {
     if (saleItems.length === 0) return;
     setShowSaleModal(true);
+  };
+
+  const finalizeSale = (printed: boolean) => {
+    if (!user?.id || saleItems.length === 0) return;
+
+    const nextSale = {
+      id: crypto.randomUUID(),
+      createdAt: new Date().toISOString(),
+      items: saleItems.map((item) => ({ ...item })),
+      paymentMethod,
+      discount,
+      subtotal: subtotalValue,
+      total: totalValue,
+      printed,
+    };
+
+    const nextHistory = [nextSale, ...saleHistory];
+    setSaleHistory(nextHistory);
+    void saveUserCollection(user.id, 'vendas', nextHistory);
+
+    const nextStock = stock.map((item) => {
+      const soldQuantity = saleItems.find((saleItem) => saleItem.id === item.id)?.quantity ?? 0;
+      if (!soldQuantity) return item;
+
+      return {
+        ...item,
+        quantity: Math.max(0, item.quantity - soldQuantity),
+        updatedAt: new Date().toISOString(),
+      };
+    });
+
+    setStock(nextStock);
+    void saveUserCollection(user.id, 'estoque', nextStock);
+
+    setSaleItems([]);
+    setProductSearch('');
+    setSelectedProductId('');
+    setQuantity(1);
+    setDiscount(0);
+    setPaymentMethod('Dinheiro');
+    setShowSaleModal(false);
   };
 
   return (
@@ -638,6 +695,14 @@ export function VendasPage() {
 
           <div className="mt-5 rounded-xl bg-gray-50 p-3 dark:bg-gray-800/60">
             <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-300">
+              <span>Subtotal</span>
+              <span className="text-xl font-bold text-gray-900 dark:text-gray-100">{formatCurrency(subtotalValue)}</span>
+            </div>
+            <div className="mt-2 flex items-center justify-between text-sm text-gray-600 dark:text-gray-300">
+              <span>Desconto</span>
+              <span>- {formatCurrency(discount)}</span>
+            </div>
+            <div className="mt-3 flex items-center justify-between border-t border-gray-200 pt-3 dark:border-gray-700">
               <span>Total</span>
               <span className="text-xl font-bold text-gray-900 dark:text-gray-100">{formatCurrency(totalValue)}</span>
             </div>
@@ -652,6 +717,33 @@ export function VendasPage() {
             Concluir venda
           </button>
         </div>
+      </div>
+
+      <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="text-base font-bold text-gray-900 dark:text-gray-100">Histórico de vendas</h3>
+          <span className="rounded-full bg-green-100 px-2.5 py-1 text-[11px] font-semibold text-green-700 dark:bg-green-900/30 dark:text-green-300">
+            {saleHistory.length} registro(s)
+          </span>
+        </div>
+
+        {saleHistory.length === 0 ? (
+          <p className="text-sm text-gray-500 dark:text-gray-400">Nenhuma venda concluída ainda.</p>
+        ) : (
+          <div className="space-y-2">
+            {saleHistory.slice(0, 5).map((sale) => (
+              <div key={sale.id} className="rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800/60">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{new Date(sale.createdAt).toLocaleString('pt-BR')}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{sale.paymentMethod} · {sale.items.length} item(ns)</p>
+                  </div>
+                  <span className="text-sm font-bold text-gray-900 dark:text-gray-100">{formatCurrency(sale.total)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {showSaleModal && (
