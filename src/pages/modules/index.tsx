@@ -17,8 +17,14 @@ interface StockItem {
   id: string;
   name: string;
   quantity: number;
+  unitPrice: number;
   updatedAt: string;
 }
+
+const formatCurrency = (value: number) => new Intl.NumberFormat('pt-BR', {
+  style: 'currency',
+  currency: 'BRL',
+}).format(value);
 
 const statusSequence: OrderStatus[] = ['Em análise', 'Aguardando aprovação', 'Aguardando peça', 'Em andamento', 'Concluída'];
 
@@ -46,7 +52,9 @@ export function EstoquePage() {
   const { user } = useAuth();
   const [products, setProducts] = useState<StockItem[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [draft, setDraft] = useState({ name: '', quantity: 1 });
+  const [search, setSearch] = useState('');
+  const [showOnlyMissing, setShowOnlyMissing] = useState(false);
+  const [draft, setDraft] = useState({ name: '', quantity: 1, unitPrice: 0 });
 
   useEffect(() => {
     if (!user?.id) return;
@@ -66,11 +74,12 @@ export function EstoquePage() {
       id: crypto.randomUUID(),
       name: cleanName,
       quantity: Math.max(0, Number(draft.quantity) || 0),
+      unitPrice: Math.max(0, Number(draft.unitPrice) || 0),
       updatedAt: new Date().toISOString(),
     };
 
     setProducts((current) => [nextItem, ...current]);
-    setDraft({ name: '', quantity: 1 });
+    setDraft({ name: '', quantity: 1, unitPrice: 0 });
     setShowAddModal(false);
   };
 
@@ -79,6 +88,20 @@ export function EstoquePage() {
       ? { ...item, quantity: Math.max(0, item.quantity + amount), updatedAt: new Date().toISOString() }
       : item));
   };
+
+  const removeProduct = (id: string) => {
+    setProducts((current) => current.filter((item) => item.id !== id));
+  };
+
+  const filteredProducts = useMemo(() => {
+    const normalizedSearch = search.trim().toLowerCase();
+
+    return products.filter((product) => {
+      const matchesSearch = !normalizedSearch || product.name.toLowerCase().includes(normalizedSearch);
+      const matchesMissing = !showOnlyMissing || product.quantity === 0;
+      return matchesSearch && matchesMissing;
+    });
+  }, [products, search, showOnlyMissing]);
 
   return (
     <div className="space-y-5">
@@ -103,66 +126,113 @@ export function EstoquePage() {
         </button>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {products.length === 0 ? (
-          <div className="md:col-span-2 xl:col-span-3 rounded-2xl border border-dashed border-emerald-200 bg-white p-8 text-center text-sm text-gray-500 dark:border-emerald-800 dark:bg-gray-900 dark:text-gray-400">
-            Nenhum produto cadastrado ainda. Adicione o primeiro item para controlar o estoque.
+      <div className="rounded-2xl border border-emerald-100 bg-white p-3 shadow-sm dark:border-emerald-900/40 dark:bg-gray-900">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="relative flex-1">
+            <input
+              type="text"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Buscar produto"
+              className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 pl-10 text-sm text-gray-900 outline-none transition focus:border-emerald-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+            />
+            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">⌕</span>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowOnlyMissing((current) => !current)}
+            className={`inline-flex items-center justify-center rounded-xl border px-3 py-2.5 text-sm font-medium transition ${
+              showOnlyMissing
+                ? 'border-red-300 bg-red-50 text-red-700 dark:border-red-700 dark:bg-red-900/30 dark:text-red-300'
+                : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700'
+            }`}
+          >
+            {showOnlyMissing ? 'Mostrando em falta' : 'Filtrar em falta'}
+          </button>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        {filteredProducts.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-emerald-200 bg-white p-8 text-center text-sm text-gray-500 dark:border-emerald-800 dark:bg-gray-900 dark:text-gray-400">
+            {products.length === 0
+              ? 'Nenhum produto cadastrado ainda. Adicione o primeiro item para controlar o estoque.'
+              : 'Nenhum produto encontrado com os filtros atuais.'}
           </div>
         ) : (
-          products.map((product) => {
+          filteredProducts.map((product) => {
             const isLowStock = product.quantity === 0;
+            const totalValue = product.quantity * product.unitPrice;
 
             return (
               <div
                 key={product.id}
-                className={`rounded-2xl border p-4 shadow-sm ${
+                className={`flex flex-col gap-3 rounded-2xl border p-4 shadow-sm md:flex-row md:items-center md:justify-between ${
                   isLowStock
                     ? 'border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/20'
                     : 'border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900'
                 }`}
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-lg font-bold text-gray-900 dark:text-gray-100">{product.name}</p>
-                    <p className={`mt-2 text-sm font-medium ${isLowStock ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'}`}>
-                      {isLowStock ? 'Produto em falta' : `Quantidade em estoque: ${product.quantity}`}
-                    </p>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="truncate text-base font-bold text-gray-900 dark:text-gray-100">{product.name}</p>
+                    <span className={`rounded-full px-2 py-1 text-[10px] font-semibold ${
+                      isLowStock
+                        ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
+                        : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
+                    }`}>
+                      {product.quantity} und
+                    </span>
                   </div>
 
-                  <div className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
-                    {product.quantity}
+                  <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-gray-600 dark:text-gray-300">
+                    <span>Unit.: <strong>{formatCurrency(product.unitPrice)}</strong></span>
+                    <span className={isLowStock ? 'text-red-600 dark:text-red-400' : ''}>
+                      Total: <strong>{formatCurrency(totalValue)}</strong>
+                    </span>
                   </div>
+
+                  {isLowStock && (
+                    <div className="mt-2 text-xs font-semibold text-red-600 dark:text-red-400">
+                      Produto em falta
+                    </div>
+                  )}
                 </div>
 
-                <div className="mt-4 flex items-center justify-between gap-2">
+                <div className="flex items-center justify-end gap-1 md:ml-4">
                   <button
                     type="button"
                     onClick={() => updateQuantity(product.id, -1)}
-                    className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-300 bg-white text-xl font-bold text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-gray-300 bg-white text-sm font-bold text-gray-700 transition hover:bg-gray-100 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
                     aria-label={`Diminuir quantidade de ${product.name}`}
                   >
                     −
                   </button>
 
-                  <span className={`text-sm font-bold ${isLowStock ? 'text-red-600 dark:text-red-400' : 'text-gray-700 dark:text-gray-200'}`}>
+                  <span className={`min-w-8 text-center text-sm font-bold ${isLowStock ? 'text-red-600 dark:text-red-400' : 'text-gray-700 dark:text-gray-200'}`}>
                     {product.quantity}
                   </span>
 
                   <button
                     type="button"
                     onClick={() => updateQuantity(product.id, 1)}
-                    className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-600 text-xl font-bold text-white hover:bg-emerald-700"
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-emerald-600 text-sm font-bold text-white transition hover:bg-emerald-700"
                     aria-label={`Aumentar quantidade de ${product.name}`}
                   >
                     +
                   </button>
-                </div>
 
-                {isLowStock && (
-                  <div className="mt-4 rounded-lg border border-red-200 bg-red-100 px-3 py-2 text-xs font-semibold text-red-700 dark:border-red-700 dark:bg-red-900/30 dark:text-red-300">
-                    Produto em falta
-                  </div>
-                )}
+                  <button
+                    type="button"
+                    onClick={() => removeProduct(product.id)}
+                    className="ml-2 inline-flex h-7 w-7 items-center justify-center rounded-md border border-red-200 bg-red-50 text-sm font-bold text-red-600 transition hover:bg-red-100 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300 dark:hover:bg-red-900/40"
+                    aria-label={`Remover ${product.name}`}
+                    title="Remover produto"
+                  >
+                    ×
+                  </button>
+                </div>
               </div>
             );
           })
@@ -193,6 +263,19 @@ export function EstoquePage() {
                   onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))}
                   className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none ring-0 transition focus:border-emerald-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
                   placeholder="Ex: Tela Samsung S25"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-200">Valor por unidade</label>
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={draft.unitPrice}
+                  onChange={(event) => setDraft((current) => ({ ...current, unitPrice: Number(event.target.value) || 0 }))}
+                  className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none ring-0 transition focus:border-emerald-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                  placeholder="0,00"
                 />
               </div>
 
