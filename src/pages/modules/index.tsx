@@ -89,6 +89,12 @@ export function EstoquePage() {
       : item));
   };
 
+  const updateProduct = (id: string, nextValue: Partial<StockItem>) => {
+    setProducts((current) => current.map((item) => item.id === id
+      ? { ...item, ...nextValue, updatedAt: new Date().toISOString() }
+      : item));
+  };
+
   const removeProduct = (id: string) => {
     setProducts((current) => current.filter((item) => item.id !== id));
   };
@@ -148,7 +154,7 @@ export function EstoquePage() {
                 : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700'
             }`}
           >
-            {showOnlyMissing ? 'Mostrando em falta' : 'Filtrar em falta'}
+            Em falta
           </button>
         </div>
       </div>
@@ -175,21 +181,12 @@ export function EstoquePage() {
                 }`}
               >
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between gap-3">
+                  <div className="flex flex-wrap items-center gap-3">
                     <p className="truncate text-base font-bold text-gray-900 dark:text-gray-100">{product.name}</p>
-                    <span className={`rounded-full px-2 py-1 text-[10px] font-semibold ${
-                      isLowStock
-                        ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
-                        : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
-                    }`}>
-                      {product.quantity} und
-                    </span>
-                  </div>
-
-                  <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-gray-600 dark:text-gray-300">
-                    <span>Unit.: <strong>{formatCurrency(product.unitPrice)}</strong></span>
-                    <span className={isLowStock ? 'text-red-600 dark:text-red-400' : ''}>
-                      Total: <strong>{formatCurrency(totalValue)}</strong>
+                    <span className="text-sm text-gray-600 dark:text-gray-300">{formatCurrency(product.unitPrice)}</span>
+                    <span className="text-sm text-gray-600 dark:text-gray-300">{product.quantity} und</span>
+                    <span className={`text-sm font-semibold ${isLowStock ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                      {formatCurrency(totalValue)}
                     </span>
                   </div>
 
@@ -210,10 +207,6 @@ export function EstoquePage() {
                     −
                   </button>
 
-                  <span className={`min-w-8 text-center text-sm font-bold ${isLowStock ? 'text-red-600 dark:text-red-400' : 'text-gray-700 dark:text-gray-200'}`}>
-                    {product.quantity}
-                  </span>
-
                   <button
                     type="button"
                     onClick={() => updateQuantity(product.id, 1)}
@@ -225,8 +218,16 @@ export function EstoquePage() {
 
                   <button
                     type="button"
+                    onClick={() => updateProduct(product.id, { unitPrice: Number(prompt('Valor por unidade:', String(product.unitPrice))) || 0 })}
+                    className="ml-2 inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-2 py-1.5 text-[11px] font-medium text-gray-700 transition hover:bg-gray-100 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                  >
+                    Editar valor
+                  </button>
+
+                  <button
+                    type="button"
                     onClick={() => removeProduct(product.id)}
-                    className="ml-2 inline-flex h-7 w-7 items-center justify-center rounded-md border border-red-200 bg-red-50 text-sm font-bold text-red-600 transition hover:bg-red-100 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300 dark:hover:bg-red-900/40"
+                    className="ml-1 inline-flex h-7 w-7 items-center justify-center rounded-md border border-red-200 bg-red-50 text-sm font-bold text-red-600 transition hover:bg-red-100 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300 dark:hover:bg-red-900/40"
                     aria-label={`Remover ${product.name}`}
                     title="Remover produto"
                   >
@@ -269,24 +270,31 @@ export function EstoquePage() {
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-200">Valor por unidade</label>
                 <input
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  value={draft.unitPrice}
-                  onChange={(event) => setDraft((current) => ({ ...current, unitPrice: Number(event.target.value) || 0 }))}
+                  type="text"
+                  inputMode="decimal"
+                  value={draft.unitPrice === 0 ? '' : String(draft.unitPrice)}
+                  onChange={(event) => {
+                    const raw = event.target.value.replace(',', '.');
+                    const parsed = Number(raw);
+                    setDraft((current) => ({ ...current, unitPrice: raw === '' ? 0 : Number.isFinite(parsed) ? parsed : current.unitPrice }));
+                  }}
                   className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none ring-0 transition focus:border-emerald-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
-                  placeholder="0,00"
+                  placeholder="Ex: 89,90"
                 />
               </div>
 
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-200">Quantidade inicial</label>
                 <input
-                  type="number"
-                  min={0}
-                  value={draft.quantity}
-                  onChange={(event) => setDraft((current) => ({ ...current, quantity: Number(event.target.value) || 0 }))}
+                  type="text"
+                  inputMode="numeric"
+                  value={draft.quantity === 0 ? '' : String(draft.quantity)}
+                  onChange={(event) => {
+                    const raw = event.target.value.replace(/[^0-9]/g, '');
+                    setDraft((current) => ({ ...current, quantity: raw === '' ? 0 : Number(raw) }));
+                  }}
                   className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none ring-0 transition focus:border-emerald-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                  placeholder="Ex: 12"
                 />
               </div>
             </div>
