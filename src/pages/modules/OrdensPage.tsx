@@ -17,6 +17,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { loadOrders, saveOrders, type OrderPriority, type OrderStatus, type ServiceOrder } from './ordersData';
 import { loadClients, type ClientRecord } from './clientsData';
 import { loadEmployees, type EmployeeRecord } from './employeesData';
+import { buildPublicStatusUrl, savePublicStatus } from './publicStatus';
 
 const statusStyles: Record<OrderStatus, string> = {
   'Em análise': 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400',
@@ -126,6 +127,17 @@ export default function OrdensPage({ onNavigate }: OrdensPageProps) {
       );
       setOrders(updatedOrders);
       await saveOrders(user?.id, updatedOrders);
+
+      await savePublicStatus({
+        orderId: selectedOrder.id,
+        client: baseOrder.client,
+        device: baseOrder.device,
+        phone: baseOrder.phone,
+        status: baseOrder.status,
+        updatedAt: new Date().toISOString(),
+        shareUrl: buildPublicStatusUrl(selectedOrder.id),
+      });
+
       setSelectedId(selectedOrder.id);
     } else {
       const nextNumber = orders.reduce((max, order) => {
@@ -140,6 +152,17 @@ export default function OrdensPage({ onNavigate }: OrdensPageProps) {
       const next = [nextOrder, ...orders];
       setOrders(next);
       await saveOrders(user?.id, next);
+
+      await savePublicStatus({
+        orderId: nextOrder.id,
+        client: nextOrder.client,
+        device: nextOrder.device,
+        phone: nextOrder.phone,
+        status: nextOrder.status,
+        updatedAt: new Date().toISOString(),
+        shareUrl: buildPublicStatusUrl(nextOrder.id),
+      });
+
       setSelectedId(nextOrder.id);
     }
 

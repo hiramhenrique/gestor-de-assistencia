@@ -9,7 +9,7 @@ import FormulariosPageComponent from './FormulariosPage';
 import OrcamentosPageComponent from './OrcamentosPage';
 import { useAuth } from '../../contexts/AuthContext';
 import { loadOrders, saveOrders, type OrderStatus, type ServiceOrder } from './ordersData';
-import { buildPublicStatusUrl, removePublicStatus, savePublicStatus } from './publicStatus';
+import { buildPublicStatusUrl, savePublicStatus } from './publicStatus';
 import { getWhatsAppTarget } from '../../utils/masks';
 
 const statusSequence: OrderStatus[] = ['Em análise', 'Aguardando aprovação', 'Aguardando peça', 'Em andamento', 'Concluída'];
@@ -84,6 +84,19 @@ export function AcompanhamentoPage() {
     [orders],
   );
 
+  const sendWhatsAppStatus = (order: ServiceOrder, status: OrderStatus) => {
+    const targetPhone = getWhatsAppTarget(order.phone ?? '');
+    if (!targetPhone) return;
+
+    const shareUrl = buildPublicStatusUrl(order.id);
+    const message = status === 'Concluída'
+      ? `Olá ${order.client}! Seu aparelho ${order.device} já está pronto.\nVocê pode retirar diretamente na loja ou combinar a entrega.\n\nAcompanhe o status aqui:\n${shareUrl}`
+      : `Olá ${order.client}!\nAcompanhe o andamento do seu aparelho ${order.device} aqui:\n${shareUrl}`;
+
+    const link = `https://wa.me/${targetPhone}?text=${encodeURIComponent(message)}`;
+    window.open(link, '_blank', 'noopener,noreferrer');
+  };
+
   const updateStatus = async (orderId: string, nextStatus: OrderStatus) => {
     const updated = orders.map((order) => order.id === orderId ? { ...order, status: nextStatus } : order);
     setOrders(updated);
@@ -94,19 +107,15 @@ export function AcompanhamentoPage() {
       return;
     }
 
-    if (nextStatus === 'Concluída') {
-      await removePublicStatus(orderId);
-    } else {
-      await savePublicStatus({
-        orderId: target.id,
-        client: target.client,
-        device: target.device,
-        phone: target.phone,
-        status: target.status,
-        updatedAt: new Date().toISOString(),
-        shareUrl: buildPublicStatusUrl(target.id),
-      });
-    }
+    await savePublicStatus({
+      orderId: target.id,
+      client: target.client,
+      device: target.device,
+      phone: target.phone,
+      status: target.status,
+      updatedAt: new Date().toISOString(),
+      shareUrl: buildPublicStatusUrl(target.id),
+    });
 
     await saveOrders(user?.id, updated);
   };
@@ -118,7 +127,13 @@ export function AcompanhamentoPage() {
     const currentIndex = statusSequence.indexOf(order.status);
     const targetIndex = direction === 'prev' ? Math.max(currentIndex - 1, 0) : Math.min(currentIndex + 1, statusSequence.length - 1);
     if (currentIndex === targetIndex) return;
-    await updateStatus(orderId, statusSequence[targetIndex]);
+
+    const nextStatus = statusSequence[targetIndex];
+    if (nextStatus === 'Concluída') {
+      sendWhatsAppStatus(order, 'Concluída');
+    }
+
+    await updateStatus(orderId, nextStatus);
   };
 
   const openWhatsApp = async (order: ServiceOrder) => {
@@ -127,35 +142,24 @@ export function AcompanhamentoPage() {
 
     const shareUrl = buildPublicStatusUrl(order.id);
     const link = order.status === 'Concluída'
-      ? `https://wa.me/${targetPhone}?text=${encodeURIComponent(`✅ Serviço foi concluído.\n${window.location.origin}/status-concluido.svg`)}`
+      ? `https://wa.me/${targetPhone}?text=${encodeURIComponent(`Olá ${order.client}! Seu aparelho ${order.device} já está pronto.\nVocê pode retirar diretamente na loja ou combinar a entrega.\n\nAcompanhe o status aqui:\n${shareUrl}`)}`
       : `https://wa.me/${targetPhone}?text=${encodeURIComponent(`Olá ${order.client}!\nAcompanhe o andamento do seu aparelho ${order.device} aqui:\n${shareUrl}`)}`;
 
-    const popup = window.open('', '_blank', 'noopener,noreferrer');
-    if (!popup) {
-      window.open(link, '_blank', 'noopener,noreferrer');
-      return;
-    }
-
     try {
-      if (order.status === 'Concluída') {
-        await removePublicStatus(order.id);
-      } else {
-        await savePublicStatus({
-          orderId: order.id,
-          client: order.client,
-          device: order.device,
-          phone: order.phone,
-          status: order.status,
-          updatedAt: new Date().toISOString(),
-          shareUrl,
-        });
-      }
-
-      popup.opener = null;
-      popup.location.href = link;
-    } catch {
-      popup.location.href = link;
+      await savePublicStatus({
+        orderId: order.id,
+        client: order.client,
+        device: order.device,
+        phone: order.phone,
+        status: order.status,
+        updatedAt: new Date().toISOString(),
+        shareUrl,
+      });
+    } catch (error) {
+      console.error('Erro ao atualizar status público do WhatsApp:', error);
     }
+
+    window.open(link, '_blank', 'noopener,noreferrer');
   };
 
   return (
@@ -219,7 +223,7 @@ export function AcompanhamentoPage() {
                       type="button"
                       onClick={(event) => {
                         event.preventDefault();
-                        void openWhatsApp(order);
+                        openWhatsApp(order);
                       }}
                       disabled={!getWhatsAppTarget(order.phone ?? '') || order.phone === 'Não informado'}
                       className="inline-flex items-center justify-center gap-2 rounded-lg bg-green-500 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-green-600 disabled:cursor-not-allowed disabled:bg-gray-300 dark:disabled:bg-gray-700"

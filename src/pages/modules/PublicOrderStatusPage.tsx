@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, ClipboardList, Wrench } from 'lucide-react';
 import { type OrderStatus } from './ordersData';
-import { type PublicOrderStatusData, readPublicStatus, statusSequence } from './publicStatus';
+import { type PublicOrderStatusData, statusSequence, subscribeToPublicStatus } from './publicStatus';
 
 interface PublicOrderStatusPageProps {
   orderId: string;
@@ -12,21 +12,19 @@ export default function PublicOrderStatusPage({ orderId }: PublicOrderStatusPage
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    let isMounted = true;
-
-    async function loadEntry() {
-      setIsLoading(true);
-      const nextEntry = await readPublicStatus(orderId);
-      if (isMounted) {
-        setEntry(nextEntry);
-        setIsLoading(false);
-      }
+    if (!orderId) {
+      setEntry(null);
+      setIsLoading(false);
+      return;
     }
 
-    loadEntry();
-    return () => {
-      isMounted = false;
-    };
+    setIsLoading(true);
+    const unsubscribe = subscribeToPublicStatus(orderId, (nextEntry) => {
+      setEntry(nextEntry);
+      setIsLoading(false);
+    });
+
+    return () => unsubscribe();
   }, [orderId]);
 
   const activeIndex = useMemo(() => {
@@ -56,12 +54,12 @@ export default function PublicOrderStatusPage({ orderId }: PublicOrderStatusPage
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-950 px-4 text-white">
         <div className="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 p-6 text-center shadow-2xl">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-amber-500/15 text-amber-300">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-cyan-500/15 text-cyan-400">
             <ClipboardList className="h-7 w-7" />
           </div>
-          <h1 className="text-2xl font-bold">Acompanhamento em atualização</h1>
+          <h1 className="text-2xl font-bold">Acompanhamento em andamento</h1>
           <p className="mt-3 text-sm text-slate-300">
-            Ainda não há um status público disponível para este atendimento.
+            O atendimento foi registrado e ainda está sendo processado.
           </p>
         </div>
       </div>
@@ -94,22 +92,24 @@ export default function PublicOrderStatusPage({ orderId }: PublicOrderStatusPage
             </div>
           </div>
 
-          {entry.status === 'Concluída' ? (
-            <div className="rounded-2xl border border-emerald-500/40 bg-emerald-500/10 p-4 text-emerald-200">
-              <div className="flex items-center gap-2 text-lg font-bold">
-                <CheckCircle2 className="h-5 w-5" />
-                Serviço concluído
+          <div className={`rounded-2xl border p-4 ${entry.status === 'Concluída' ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200' : 'border-cyan-500/30 bg-cyan-500/10 text-cyan-100'}`}>
+            {entry.status === 'Concluída' ? (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-lg font-bold">
+                  <CheckCircle2 className="h-5 w-5" />
+                  Serviço concluído
+                </div>
+                <p className="text-sm text-emerald-100/90">
+                  Seu aparelho está pronto para retirada ou podemos combinar a entrega.
+                </p>
               </div>
-              <p className="mt-2 text-sm text-emerald-100/90">
-                Seu atendimento foi finalizado com sucesso.
-              </p>
-            </div>
-          ) : (
-            <div className="rounded-2xl border border-cyan-500/30 bg-cyan-500/10 p-4 text-cyan-100">
-              <p className="text-sm font-medium">Status atual</p>
-              <p className="mt-1 text-xl font-bold">{entry.status}</p>
-            </div>
-          )}
+            ) : (
+              <>
+                <p className="text-sm font-medium">Status atual</p>
+                <p className="mt-1 text-xl font-bold">{entry.status}</p>
+              </>
+            )}
+          </div>
 
           <div className="space-y-3">
             <div className="flex items-center justify-between text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">
@@ -120,7 +120,7 @@ export default function PublicOrderStatusPage({ orderId }: PublicOrderStatusPage
             <div className="relative">
               <div className="absolute left-0 right-0 top-4 h-1 rounded-full bg-slate-700" />
               <div
-                className="absolute left-0 top-4 h-1 rounded-full bg-gradient-to-r from-cyan-500 via-violet-500 to-emerald-500 transition-all duration-300"
+                className={`absolute left-0 top-4 h-1 rounded-full transition-all duration-300 ${entry.status === 'Concluída' ? 'bg-gradient-to-r from-emerald-500 to-emerald-400' : 'bg-gradient-to-r from-cyan-500 via-violet-500 to-emerald-500'}`}
                 style={{ width: `${progressPercent}%` }}
               />
 
@@ -133,7 +133,9 @@ export default function PublicOrderStatusPage({ orderId }: PublicOrderStatusPage
                     <div key={status} className="flex w-full flex-col items-center gap-2">
                       <div className={`flex h-8 w-8 items-center justify-center rounded-full border-2 text-[10px] font-bold transition ${
                         isComplete
-                          ? 'border-cyan-500 bg-cyan-500 text-white'
+                          ? entry.status === 'Concluída'
+                            ? 'border-emerald-500 bg-emerald-500 text-white'
+                            : 'border-cyan-500 bg-cyan-500 text-white'
                           : 'border-slate-600 bg-slate-800 text-slate-400'
                       } ${isCurrent ? 'ring-4 ring-cyan-500/20' : ''}`}>
                         {index + 1}
