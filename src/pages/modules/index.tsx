@@ -68,6 +68,7 @@ export function FluxoCaixaPage() {
 export function AcompanhamentoPage() {
   const { user } = useAuth();
   const [orders, setOrders] = useState<ServiceOrder[]>([]);
+  const [sendingOrderId, setSendingOrderId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -84,18 +85,8 @@ export function AcompanhamentoPage() {
     [orders],
   );
 
-  const sendWhatsAppStatus = (order: ServiceOrder, status: OrderStatus) => {
-    const targetPhone = getWhatsAppTarget(order.phone ?? '');
-    if (!targetPhone) return;
-
-    const shareUrl = buildPublicStatusUrl(order.id);
-    const message = status === 'Concluída'
-      ? `Olá ${order.client}! Seu aparelho ${order.device} já está pronto.\nVocê pode retirar diretamente na loja ou combinar a entrega.\n\nAcompanhe o status aqui:\n${shareUrl}`
-      : `Olá ${order.client}!\nAcompanhe o andamento do seu aparelho ${order.device} aqui:\n${shareUrl}`;
-
-    const link = `https://wa.me/${targetPhone}?text=${encodeURIComponent(message)}`;
-    window.open(link, '_blank', 'noopener,noreferrer');
-  };
+  const buildStatusTrackingMessage = (order: ServiceOrder, shareUrl: string) =>
+    `Olá ${order.client}!\nAcompanhe o andamento do seu aparelho ${order.device} aqui:\n${shareUrl}`;
 
   const updateStatus = async (orderId: string, nextStatus: OrderStatus) => {
     const updated = orders.map((order) => order.id === orderId ? { ...order, status: nextStatus } : order);
@@ -129,23 +120,21 @@ export function AcompanhamentoPage() {
     if (currentIndex === targetIndex) return;
 
     const nextStatus = statusSequence[targetIndex];
-    if (nextStatus === 'Concluída') {
-      sendWhatsAppStatus(order, 'Concluída');
-    }
-
     await updateStatus(orderId, nextStatus);
   };
 
   const openWhatsApp = async (order: ServiceOrder) => {
+    if (order.status === 'Concluída' || sendingOrderId === order.id) return;
+
     const targetPhone = getWhatsAppTarget(order.phone ?? '');
     if (!targetPhone) return;
 
-    const shareUrl = buildPublicStatusUrl(order.id);
-    const link = order.status === 'Concluída'
-      ? `https://wa.me/${targetPhone}?text=${encodeURIComponent(`Olá ${order.client}! Seu aparelho ${order.device} já está pronto.\nVocê pode retirar diretamente na loja ou combinar a entrega.\n\nAcompanhe o status aqui:\n${shareUrl}`)}`
-      : `https://wa.me/${targetPhone}?text=${encodeURIComponent(`Olá ${order.client}!\nAcompanhe o andamento do seu aparelho ${order.device} aqui:\n${shareUrl}`)}`;
+    setSendingOrderId(order.id);
 
     try {
+      const shareUrl = buildPublicStatusUrl(order.id);
+      const message = buildStatusTrackingMessage(order, shareUrl);
+
       await savePublicStatus({
         orderId: order.id,
         client: order.client,
@@ -155,11 +144,14 @@ export function AcompanhamentoPage() {
         updatedAt: new Date().toISOString(),
         shareUrl,
       });
+
+      const link = `https://wa.me/${targetPhone}?text=${encodeURIComponent(message)}`;
+      window.open(link, '_blank', 'noopener,noreferrer');
     } catch (error) {
       console.error('Erro ao atualizar status público do WhatsApp:', error);
+    } finally {
+      setSendingOrderId(null);
     }
-
-    window.open(link, '_blank', 'noopener,noreferrer');
   };
 
   return (
@@ -219,20 +211,22 @@ export function AcompanhamentoPage() {
                     >
                       »
                     </button>
-                    <button
-                      type="button"
-                      onClick={(event) => {
-                        event.preventDefault();
-                        openWhatsApp(order);
-                      }}
-                      disabled={!getWhatsAppTarget(order.phone ?? '') || order.phone === 'Não informado'}
-                      className="inline-flex items-center justify-center gap-2 rounded-lg bg-green-500 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-green-600 disabled:cursor-not-allowed disabled:bg-gray-300 dark:disabled:bg-gray-700"
-                    >
+                    {!order.status || order.status !== 'Concluída' ? (
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          openWhatsApp(order);
+                        }}
+                        disabled={sendingOrderId === order.id || !getWhatsAppTarget(order.phone ?? '') || order.phone === 'Não informado'}
+                        className="inline-flex items-center justify-center gap-2 rounded-lg bg-green-500 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-green-600 disabled:cursor-not-allowed disabled:bg-gray-300 dark:disabled:bg-gray-700"
+                      >
                       <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className="h-4 w-4">
                         <path d="M20.52 3.48A11.86 11.86 0 0 0 12.08 0C5.48 0 .09 5.39.09 12.01c0 2.1.55 4.15 1.59 5.95L0 24l6.18-1.62A11.93 11.93 0 0 0 12.08 24c6.62 0 12-5.39 12-12.01 0-3.2-1.24-6.22-3.56-8.51ZM12.08 21.9c-1.89 0-3.74-.5-5.35-1.45l-.38-.23-3.67.96 1-3.57-.24-.37a9.88 9.88 0 0 1-1.54-5.22c0-5.46 4.46-9.9 9.96-9.9a9.87 9.87 0 0 1 7 2.92 9.78 9.78 0 0 1 2.92 7.02c.01 5.46-4.45 9.9-9.91 9.9Zm5.43-7.4c-.3-.15-1.76-.87-2.03-.97-.27-.1-.46-.15-.66.15-.19.3-.74.97-.91 1.17-.17.2-.33.22-.62.08-.3-.15-1.27-.47-2.41-1.49-.89-.79-1.49-1.77-1.66-2.07-.17-.3-.02-.46.13-.61.13-.13.3-.33.45-.5.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.08-.15-.66-1.6-.91-2.2-.24-.57-.48-.49-.66-.49h-.57c-.2 0-.52.07-.79.37-.27.3-1.03 1.01-1.03 2.46s1.05 2.84 1.2 3.04c.15.2 2.05 3.13 4.98 4.39.7.3 1.24.48 1.67.62.7.22 1.34.19 1.84.12.56-.08 1.76-.72 2.01-1.42.25-.7.25-1.3.18-1.42-.08-.12-.27-.2-.57-.35Z" />
-                      </svg>
-                      Enviar status
-                    </button>
+                        </svg>
+                        Enviar status
+                      </button>
+                    ) : null}
                   </div>
                 </div>
 
