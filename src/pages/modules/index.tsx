@@ -524,29 +524,6 @@ export function VendasPage() {
                   <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">⌕</span>
                 </div>
 
-                {filteredProducts.length > 0 && (
-                  <div className="mt-2 max-h-48 overflow-y-auto rounded-xl border border-gray-200 bg-white p-1 shadow-sm dark:border-gray-700 dark:bg-gray-900">
-                    {filteredProducts.map((product) => (
-                      <button
-                        key={product.id}
-                        type="button"
-                        onClick={() => {
-                          setSelectedProductId(product.id);
-                          setProductSearch(product.name);
-                        }}
-                        className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition ${
-                          selectedProductId === product.id
-                            ? 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-300'
-                            : 'text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-800'
-                        }`}
-                      >
-                        <span>{product.name}</span>
-                        <span className="text-xs text-gray-500 dark:text-gray-400">{product.quantity} und</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-
                 {productSearch.trim() && filteredProducts.length === 0 && (
                   <p className="mt-2 text-xs text-red-600 dark:text-red-400">Nenhum produto encontrado para essa busca.</p>
                 )}
