@@ -416,22 +416,14 @@ export function VendasPage() {
   useEffect(() => {
     if (availableProducts.length === 0) {
       setSelectedProductId('');
-      setProductSearch('');
       return;
     }
 
     const hasSelectedProduct = availableProducts.some((product) => product.id === selectedProductId);
     if (!hasSelectedProduct) {
       setSelectedProductId(availableProducts[0].id);
-      setProductSearch(availableProducts[0].name);
-      return;
     }
-
-    const activeProduct = availableProducts.find((product) => product.id === selectedProductId);
-    if (activeProduct && productSearch.trim() === '') {
-      setProductSearch(activeProduct.name);
-    }
-  }, [availableProducts, selectedProductId, productSearch]);
+  }, [availableProducts, selectedProductId]);
 
   const filteredProducts = useMemo(() => {
     const normalizedSearch = productSearch.trim().toLowerCase();
