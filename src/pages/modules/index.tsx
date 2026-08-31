@@ -17,7 +17,9 @@ interface StockItem {
   id: string;
   name: string;
   quantity: number;
-  unitPrice: number;
+  costPrice: number;
+  salePrice: number;
+  unitPrice?: number;
   updatedAt: string;
 }
 
@@ -54,7 +56,7 @@ export function EstoquePage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [search, setSearch] = useState('');
   const [showOnlyMissing, setShowOnlyMissing] = useState(false);
-  const [draft, setDraft] = useState({ name: '', quantity: 1, unitPrice: 0 });
+  const [draft, setDraft] = useState({ name: '', quantity: 1, costPrice: 0, salePrice: 0 });
 
   useEffect(() => {
     if (!user?.id) return;
@@ -70,16 +72,19 @@ export function EstoquePage() {
     const cleanName = draft.name.trim();
     if (!cleanName) return;
 
+    const salePrice = Math.max(0, Number(draft.salePrice) || 0);
     const nextItem: StockItem = {
       id: crypto.randomUUID(),
       name: cleanName,
       quantity: Math.max(0, Number(draft.quantity) || 0),
-      unitPrice: Math.max(0, Number(draft.unitPrice) || 0),
+      costPrice: Math.max(0, Number(draft.costPrice) || 0),
+      salePrice,
+      unitPrice: salePrice,
       updatedAt: new Date().toISOString(),
     };
 
     setProducts((current) => [nextItem, ...current]);
-    setDraft({ name: '', quantity: 1, unitPrice: 0 });
+    setDraft({ name: '', quantity: 1, costPrice: 0, salePrice: 0 });
     setShowAddModal(false);
   };
 
@@ -93,7 +98,8 @@ export function EstoquePage() {
     setEditingProduct(product);
     setEditDraft({
       quantity: product.quantity,
-      unitPrice: product.unitPrice,
+      costPrice: product.costPrice ?? product.unitPrice ?? 0,
+      salePrice: product.salePrice ?? product.unitPrice ?? 0,
     });
   };
 
@@ -102,7 +108,7 @@ export function EstoquePage() {
   };
 
   const [editingProduct, setEditingProduct] = useState<StockItem | null>(null);
-  const [editDraft, setEditDraft] = useState({ quantity: 0, unitPrice: 0 });
+  const [editDraft, setEditDraft] = useState({ quantity: 0, costPrice: 0, salePrice: 0 });
 
   const filteredProducts = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
@@ -174,7 +180,6 @@ export function EstoquePage() {
         ) : (
           filteredProducts.map((product) => {
             const isLowStock = product.quantity === 0;
-            const totalValue = product.quantity * product.unitPrice;
 
             return (
               <div
@@ -188,11 +193,7 @@ export function EstoquePage() {
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-3">
                     <p className="truncate text-base font-bold text-gray-900 dark:text-gray-100">{product.name}</p>
-                    <span className="text-sm text-gray-600 dark:text-gray-300">{formatCurrency(product.unitPrice)}</span>
                     <span className="text-sm text-gray-600 dark:text-gray-300">{product.quantity} und</span>
-                    <span className={`text-sm font-semibold ${isLowStock ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
-                      {formatCurrency(totalValue)}
-                    </span>
                   </div>
 
                   {isLowStock && (
@@ -255,15 +256,31 @@ export function EstoquePage() {
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-200">Valor por unidade</label>
+                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-200">Valor de custo</label>
                 <input
                   type="text"
                   inputMode="decimal"
-                  value={draft.unitPrice === 0 ? '' : String(draft.unitPrice)}
+                  value={draft.costPrice === 0 ? '' : String(draft.costPrice)}
                   onChange={(event) => {
                     const raw = event.target.value.replace(',', '.');
                     const parsed = Number(raw);
-                    setDraft((current) => ({ ...current, unitPrice: raw === '' ? 0 : Number.isFinite(parsed) ? parsed : current.unitPrice }));
+                    setDraft((current) => ({ ...current, costPrice: raw === '' ? 0 : Number.isFinite(parsed) ? parsed : current.costPrice }));
+                  }}
+                  className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none ring-0 transition focus:border-emerald-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                  placeholder="Ex: 45,00"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-200">Valor de venda</label>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={draft.salePrice === 0 ? '' : String(draft.salePrice)}
+                  onChange={(event) => {
+                    const raw = event.target.value.replace(',', '.');
+                    const parsed = Number(raw);
+                    setDraft((current) => ({ ...current, salePrice: raw === '' ? 0 : Number.isFinite(parsed) ? parsed : current.salePrice }));
                   }}
                   className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none ring-0 transition focus:border-emerald-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
                   placeholder="Ex: 89,90"
@@ -334,15 +351,30 @@ export function EstoquePage() {
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-200">Valor por unidade</label>
+                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-200">Valor de custo</label>
                 <input
                   type="text"
                   inputMode="decimal"
-                  value={editDraft.unitPrice === 0 ? '' : String(editDraft.unitPrice)}
+                  value={editDraft.costPrice === 0 ? '' : String(editDraft.costPrice)}
                   onChange={(event) => {
                     const raw = event.target.value.replace(',', '.');
                     const parsed = Number(raw);
-                    setEditDraft((current) => ({ ...current, unitPrice: raw === '' ? 0 : Number.isFinite(parsed) ? parsed : current.unitPrice }));
+                    setEditDraft((current) => ({ ...current, costPrice: raw === '' ? 0 : Number.isFinite(parsed) ? parsed : current.costPrice }));
+                  }}
+                  className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none focus:border-emerald-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-200">Valor de venda</label>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={editDraft.salePrice === 0 ? '' : String(editDraft.salePrice)}
+                  onChange={(event) => {
+                    const raw = event.target.value.replace(',', '.');
+                    const parsed = Number(raw);
+                    setEditDraft((current) => ({ ...current, salePrice: raw === '' ? 0 : Number.isFinite(parsed) ? parsed : current.salePrice }));
                   }}
                   className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none focus:border-emerald-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
                 />
@@ -376,7 +408,9 @@ export function EstoquePage() {
                 onClick={() => {
                   updateProduct(editingProduct.id, {
                     quantity: Math.max(0, Number(editDraft.quantity) || 0),
-                    unitPrice: Math.max(0, Number(editDraft.unitPrice) || 0),
+                    costPrice: Math.max(0, Number(editDraft.costPrice) || 0),
+                    salePrice: Math.max(0, Number(editDraft.salePrice) || 0),
+                    unitPrice: Math.max(0, Number(editDraft.salePrice) || 0),
                   });
                   setEditingProduct(null);
                 }}
@@ -456,6 +490,7 @@ export function VendasPage() {
     if (!product) return;
 
     const normalizedQty = Math.max(1, Number(quantity) || 1);
+    const sellingPrice = product.salePrice ?? product.unitPrice ?? 0;
 
     setSaleItems((current) => {
       const existingIndex = current.findIndex((item) => item.id === product.id);
@@ -473,11 +508,7 @@ export function VendasPage() {
         id: product.id,
         name: product.name,
         quantity: normalizedQty,
-        unitPrice: product.unitPrice,
-      }];
-    });
-
-    setQuantity(1);
+        unitPrice: sellingPrice,
   };
 
   const updateSaleItem = (id: string, delta: number) => {
@@ -524,12 +555,12 @@ export function VendasPage() {
       const soldQuantity = saleItems.find((saleItem) => saleItem.id === item.id)?.quantity ?? 0;
       if (!soldQuantity) return item;
 
-      return {
-        ...item,
-        quantity: Math.max(0, item.quantity - soldQuantity),
-        updatedAt: new Date().toISOString(),
-      };
-    });
+        const nextSalePrice = item.salePrice ?? item.unitPrice ?? item.salePrice ?? 0;
+
+        return {
+          ...item,
+          salePrice: nextSalePrice,
+          unitPrice: nextSalePrice,
 
     setStock(nextStock);
     void saveUserCollection(user.id, 'estoque', nextStock);
@@ -543,30 +574,6 @@ export function VendasPage() {
     setShowSaleModal(false);
   };
 
-  const cancelSale = (saleId: string) => {
-    if (!user?.id) return;
-
-    const targetSale = saleHistory.find((sale) => sale.id === saleId);
-    if (!targetSale) return;
-
-    const nextHistory = saleHistory.filter((sale) => sale.id !== saleId);
-    setSaleHistory(nextHistory);
-    void saveUserCollection(user.id, 'vendas', nextHistory);
-
-    const nextStock = stock.map((item) => {
-      const returnedQuantity = targetSale.items.find((saleItem) => saleItem.id === item.id)?.quantity ?? 0;
-      if (!returnedQuantity) return item;
-
-      return {
-        ...item,
-        quantity: item.quantity + returnedQuantity,
-        updatedAt: new Date().toISOString(),
-      };
-    });
-
-    setStock(nextStock);
-    void saveUserCollection(user.id, 'estoque', nextStock);
-  };
 
   return (
     <div className="space-y-5">
@@ -766,13 +773,6 @@ export function VendasPage() {
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-bold text-gray-900 dark:text-gray-100">{formatCurrency(sale.total)}</span>
-                    <button
-                      type="button"
-                      onClick={() => cancelSale(sale.id)}
-                      className="inline-flex items-center justify-center rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-[11px] font-semibold text-red-700 transition hover:bg-red-100 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300 dark:hover:bg-red-900/30"
-                    >
-                      Cancelar venda
-                    </button>
                   </div>
                 </div>
               </div>
