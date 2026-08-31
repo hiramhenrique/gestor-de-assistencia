@@ -45,7 +45,7 @@ const QUICK_ACTIONS: { id?: ModuleId; label: string; icon: ReactNode; color: str
   { id: 'clientes', label: 'Novo Cliente', icon: <Users className="w-5 h-5" />, color: 'blue', action: 'navigate' },
   { label: 'Orçamento', icon: <ClipboardList className="w-5 h-5" />, color: 'cyan', action: 'disabled' },
   { id: 'estoque', label: 'Estoque', icon: <Package className="w-5 h-5" />, color: 'green', action: 'navigate' },
-  { label: 'Venda', icon: <ClipboardList className="w-5 h-5" />, color: 'emerald', action: 'disabled' },
+  { id: 'vendas', label: 'Venda', icon: <ClipboardList className="w-5 h-5" />, color: 'emerald', action: 'navigate' },
   { label: 'Fluxo de Caixa', icon: <Activity className="w-5 h-5" />, color: 'red', action: 'disabled' },
 ];
 

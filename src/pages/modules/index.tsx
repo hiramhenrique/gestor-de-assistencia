@@ -397,12 +397,209 @@ export function OrcamentosPage() {
 }
 
 export function VendasPage() {
-  return <PlaceholderPage
-    title="Vendas"
-    description="Registro de vendas de produtos e serviços com emissão de comprovantes."
-    icon={<ShoppingCart className="w-9 h-9 text-green-600 dark:text-green-400" />}
-    color="bg-green-100 dark:bg-green-900/30"
-  />;
+  const { user } = useAuth();
+  const [stock, setStock] = useState<StockItem[]>([]);
+  const [selectedProductId, setSelectedProductId] = useState('');
+  const [quantity, setQuantity] = useState(1);
+  const [saleItems, setSaleItems] = useState<Array<{ id: string; name: string; quantity: number; unitPrice: number }>>([]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    void loadUserCollection<StockItem>(user.id, 'estoque').then((items) => {
+      setStock(items);
+      if (items.length > 0 && !selectedProductId) {
+        setSelectedProductId(items[0].id);
+      }
+    });
+  }, [user?.id, selectedProductId]);
+
+  const availableProducts = stock.filter((item) => item.quantity > 0);
+
+  const addProductToSale = () => {
+    const product = stock.find((item) => item.id === selectedProductId);
+    if (!product) return;
+
+    const normalizedQty = Math.max(1, Number(quantity) || 1);
+
+    setSaleItems((current) => {
+      const existingIndex = current.findIndex((item) => item.id === product.id);
+
+      if (existingIndex >= 0) {
+        const next = [...current];
+        next[existingIndex] = {
+          ...next[existingIndex],
+          quantity: next[existingIndex].quantity + normalizedQty,
+        };
+        return next;
+      }
+
+      return [...current, {
+        id: product.id,
+        name: product.name,
+        quantity: normalizedQty,
+        unitPrice: product.unitPrice,
+      }];
+    });
+
+    setQuantity(1);
+  };
+
+  const updateSaleItem = (id: string, delta: number) => {
+    setSaleItems((current) => current
+      .map((item) => item.id === id
+        ? { ...item, quantity: Math.max(0, item.quantity + delta) }
+        : item)
+      .filter((item) => item.quantity > 0));
+  };
+
+  const removeSaleItem = (id: string) => {
+    setSaleItems((current) => current.filter((item) => item.id !== id));
+  };
+
+  const totalItems = saleItems.reduce((sum, item) => sum + item.quantity, 0);
+  const totalValue = saleItems.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
+
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-col gap-3 rounded-2xl border border-green-100 bg-white p-4 shadow-sm dark:border-green-900/40 dark:bg-gray-900 md:flex-row md:items-center md:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+            <ShoppingCart className="h-5 w-5" />
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-green-600 dark:text-green-400">Vendas</p>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Caixa / Nota de venda</h2>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          disabled
+          className="inline-flex items-center justify-center gap-2 rounded-xl border border-gray-300 bg-gray-100 px-4 py-2.5 text-sm font-semibold text-gray-500 shadow-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400"
+        >
+          <ShoppingCart className="h-4 w-4" />
+          Imprimir
+        </button>
+      </div>
+
+      <div className="grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+          <h3 className="mb-4 text-base font-bold text-gray-900 dark:text-gray-100">Adicionar produto</h3>
+
+          {availableProducts.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4 text-sm text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
+              Nenhum produto disponível no estoque para venda.
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-200">Produto</label>
+                <select
+                  value={selectedProductId}
+                  onChange={(event) => setSelectedProductId(event.target.value)}
+                  className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none transition focus:border-green-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                >
+                  {availableProducts.map((product) => (
+                    <option key={product.id} value={product.id}>{product.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-200">Quantidade</label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={quantity === 0 ? '' : String(quantity)}
+                  onChange={(event) => {
+                    const raw = event.target.value.replace(/[^0-9]/g, '');
+                    setQuantity(raw === '' ? 0 : Number(raw));
+                  }}
+                  className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none transition focus:border-green-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                  placeholder="Ex: 2"
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={addProductToSale}
+                className="inline-flex items-center justify-center rounded-xl bg-green-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-green-700"
+              >
+                Adicionar à venda
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="text-base font-bold text-gray-900 dark:text-gray-100">Resumo da nota</h3>
+            <span className="rounded-full bg-green-100 px-2.5 py-1 text-[11px] font-semibold text-green-700 dark:bg-green-900/30 dark:text-green-300">
+              {totalItems} itens
+            </span>
+          </div>
+
+          <div className="space-y-3">
+            {saleItems.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4 text-sm text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
+                Nenhum item adicionado à nota.
+              </div>
+            ) : (
+              saleItems.map((item) => (
+                <div key={item.id} className="rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800/60">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-gray-900 dark:text-gray-100">{item.name}</p>
+                      <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                        <span>{item.quantity}x</span>
+                        <span>{formatCurrency(item.unitPrice)}</span>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-bold text-gray-900 dark:text-gray-100">{formatCurrency(item.quantity * item.unitPrice)}</p>
+                      <div className="mt-2 flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => updateSaleItem(item.id, -1)}
+                          className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-gray-300 bg-white text-xs font-bold text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
+                          aria-label={`Diminuir quantidade de ${item.name}`}
+                        >
+                          −
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => updateSaleItem(item.id, 1)}
+                          className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-gray-300 bg-white text-xs font-bold text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
+                          aria-label={`Aumentar quantidade de ${item.name}`}
+                        >
+                          +
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removeSaleItem(item.id)}
+                          className="ml-1 inline-flex h-6 w-6 items-center justify-center rounded-md border border-red-200 bg-red-50 text-xs font-bold text-red-600 hover:bg-red-100 dark:border-red-800 dark:bg-red-900/30 dark:text-red-300"
+                          aria-label={`Remover ${item.name}`}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          <div className="mt-5 rounded-xl bg-gray-50 p-3 dark:bg-gray-800/60">
+            <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-300">
+              <span>Total</span>
+              <span className="text-xl font-bold text-gray-900 dark:text-gray-100">{formatCurrency(totalValue)}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export function FluxoCaixaPage() {
