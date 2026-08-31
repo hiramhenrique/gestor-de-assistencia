@@ -509,6 +509,10 @@ export function VendasPage() {
         name: product.name,
         quantity: normalizedQty,
         unitPrice: sellingPrice,
+      }];
+    });
+
+    setQuantity(1);
   };
 
   const updateSaleItem = (id: string, delta: number) => {
@@ -555,12 +559,16 @@ export function VendasPage() {
       const soldQuantity = saleItems.find((saleItem) => saleItem.id === item.id)?.quantity ?? 0;
       if (!soldQuantity) return item;
 
-        const nextSalePrice = item.salePrice ?? item.unitPrice ?? item.salePrice ?? 0;
+      const nextSalePrice = item.salePrice ?? item.unitPrice ?? 0;
 
-        return {
-          ...item,
-          salePrice: nextSalePrice,
-          unitPrice: nextSalePrice,
+      return {
+        ...item,
+        salePrice: nextSalePrice,
+        unitPrice: nextSalePrice,
+        quantity: Math.max(0, item.quantity - soldQuantity),
+        updatedAt: new Date().toISOString(),
+      };
+    });
 
     setStock(nextStock);
     void saveUserCollection(user.id, 'estoque', nextStock);
