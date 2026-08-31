@@ -543,6 +543,31 @@ export function VendasPage() {
     setShowSaleModal(false);
   };
 
+  const cancelSale = (saleId: string) => {
+    if (!user?.id) return;
+
+    const targetSale = saleHistory.find((sale) => sale.id === saleId);
+    if (!targetSale) return;
+
+    const nextHistory = saleHistory.filter((sale) => sale.id !== saleId);
+    setSaleHistory(nextHistory);
+    void saveUserCollection(user.id, 'vendas', nextHistory);
+
+    const nextStock = stock.map((item) => {
+      const returnedQuantity = targetSale.items.find((saleItem) => saleItem.id === item.id)?.quantity ?? 0;
+      if (!returnedQuantity) return item;
+
+      return {
+        ...item,
+        quantity: item.quantity + returnedQuantity,
+        updatedAt: new Date().toISOString(),
+      };
+    });
+
+    setStock(nextStock);
+    void saveUserCollection(user.id, 'estoque', nextStock);
+  };
+
   return (
     <div className="space-y-5">
       <div className="flex flex-col gap-3 rounded-2xl border border-green-100 bg-white p-4 shadow-sm dark:border-green-900/40 dark:bg-gray-900 md:flex-row md:items-center md:justify-between">
@@ -739,7 +764,16 @@ export function VendasPage() {
                     <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{new Date(sale.createdAt).toLocaleString('pt-BR')}</p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">{sale.paymentMethod} · {sale.items.length} item(ns)</p>
                   </div>
-                  <span className="text-sm font-bold text-gray-900 dark:text-gray-100">{formatCurrency(sale.total)}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold text-gray-900 dark:text-gray-100">{formatCurrency(sale.total)}</span>
+                    <button
+                      type="button"
+                      onClick={() => cancelSale(sale.id)}
+                      className="inline-flex items-center justify-center rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-[11px] font-semibold text-red-700 transition hover:bg-red-100 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300 dark:hover:bg-red-900/30"
+                    >
+                      Cancelar venda
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
