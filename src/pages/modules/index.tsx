@@ -83,12 +83,6 @@ export function EstoquePage() {
     setShowAddModal(false);
   };
 
-  const updateQuantity = (id: string, amount: number) => {
-    setProducts((current) => current.map((item) => item.id === id
-      ? { ...item, quantity: Math.max(0, item.quantity + amount), updatedAt: new Date().toISOString() }
-      : item));
-  };
-
   const updateProduct = (id: string, nextValue: Partial<StockItem>) => {
     setProducts((current) => current.map((item) => item.id === id
       ? { ...item, ...nextValue, updatedAt: new Date().toISOString() }
