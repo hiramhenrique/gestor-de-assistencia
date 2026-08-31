@@ -426,26 +426,17 @@ export function VendasPage() {
     }
   }, [availableProducts, selectedProductId]);
 
-  const matchedProduct = useMemo(() => {
+  const matchingProducts = useMemo(() => {
     const normalizedSearch = productSearch.trim().toLowerCase();
     if (!normalizedSearch) {
-      return null;
+      return [];
     }
 
-    return availableProducts.find((product) => product.name.toLowerCase() === normalizedSearch)
-      ?? availableProducts.find((product) => product.name.toLowerCase().includes(normalizedSearch))
-      ?? null;
+    return availableProducts.filter((product) => product.name.toLowerCase().includes(normalizedSearch));
   }, [availableProducts, productSearch]);
 
-  useEffect(() => {
-    if (!productSearch.trim()) return;
-    if (matchedProduct) {
-      setSelectedProductId(matchedProduct.id);
-    }
-  }, [matchedProduct, productSearch]);
-
   const addProductToSale = () => {
-    const product = selectedProduct ?? matchedProduct ?? availableProducts[0] ?? null;
+    const product = selectedProduct ?? matchingProducts[0] ?? availableProducts[0] ?? null;
     if (!product) return;
 
     const normalizedQty = Math.max(1, Number(quantity) || 1);
@@ -535,10 +526,27 @@ export function VendasPage() {
                 </div>
 
                 {productSearch.trim() && (
-                  matchedProduct ? (
-                    <p className="mt-2 text-xs font-medium text-emerald-600 dark:text-emerald-400">
-                      Produto selecionado: {matchedProduct.name}
-                    </p>
+                  matchingProducts.length > 0 ? (
+                    <div className="mt-2 max-h-52 space-y-2 overflow-y-auto rounded-xl border border-gray-200 bg-gray-50 p-2 dark:border-gray-700 dark:bg-gray-800/70">
+                      {matchingProducts.map((product) => (
+                        <button
+                          key={product.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedProductId(product.id);
+                            setProductSearch(product.name);
+                          }}
+                          className={`flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left text-sm transition ${
+                            selectedProductId === product.id
+                              ? 'border-green-300 bg-green-50 text-green-700 dark:border-green-700 dark:bg-green-900/20 dark:text-green-300'
+                              : 'border-transparent bg-white text-gray-700 hover:bg-gray-100 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800'
+                          }`}
+                        >
+                          <span className="font-medium">{product.name}</span>
+                          <span className="text-xs text-gray-500 dark:text-gray-400">{product.quantity} und</span>
+                        </button>
+                      ))}
+                    </div>
                   ) : (
                     <p className="mt-2 text-xs text-red-600 dark:text-red-400">
                       Nenhum produto encontrado na lista de estoque.
