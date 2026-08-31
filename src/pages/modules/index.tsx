@@ -400,6 +400,7 @@ export function VendasPage() {
   const { user } = useAuth();
   const [stock, setStock] = useState<StockItem[]>([]);
   const [selectedProductId, setSelectedProductId] = useState('');
+  const [productSearch, setProductSearch] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [saleItems, setSaleItems] = useState<Array<{ id: string; name: string; quantity: number; unitPrice: number }>>([]);
 
@@ -407,13 +408,39 @@ export function VendasPage() {
     if (!user?.id) return;
     void loadUserCollection<StockItem>(user.id, 'estoque').then((items) => {
       setStock(items);
-      if (items.length > 0 && !selectedProductId) {
-        setSelectedProductId(items[0].id);
-      }
     });
-  }, [user?.id, selectedProductId]);
+  }, [user?.id]);
 
   const availableProducts = stock.filter((item) => item.quantity > 0);
+
+  useEffect(() => {
+    if (availableProducts.length === 0) {
+      setSelectedProductId('');
+      setProductSearch('');
+      return;
+    }
+
+    const hasSelectedProduct = availableProducts.some((product) => product.id === selectedProductId);
+    if (!hasSelectedProduct) {
+      setSelectedProductId(availableProducts[0].id);
+      setProductSearch(availableProducts[0].name);
+      return;
+    }
+
+    const activeProduct = availableProducts.find((product) => product.id === selectedProductId);
+    if (activeProduct && productSearch.trim() === '') {
+      setProductSearch(activeProduct.name);
+    }
+  }, [availableProducts, selectedProductId, productSearch]);
+
+  const filteredProducts = useMemo(() => {
+    const normalizedSearch = productSearch.trim().toLowerCase();
+    if (!normalizedSearch) {
+      return availableProducts;
+    }
+
+    return availableProducts.filter((product) => product.name.toLowerCase().includes(normalizedSearch));
+  }, [availableProducts, productSearch]);
 
   const addProductToSale = () => {
     const product = stock.find((item) => item.id === selectedProductId);
@@ -494,15 +521,43 @@ export function VendasPage() {
             <div className="space-y-4">
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-200">Produto</label>
-                <select
-                  value={selectedProductId}
-                  onChange={(event) => setSelectedProductId(event.target.value)}
-                  className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none transition focus:border-green-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
-                >
-                  {availableProducts.map((product) => (
-                    <option key={product.id} value={product.id}>{product.name}</option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={productSearch}
+                    onChange={(event) => setProductSearch(event.target.value)}
+                    placeholder="Buscar produto"
+                    className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 pr-10 text-sm text-gray-900 outline-none transition focus:border-green-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                  />
+                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">⌕</span>
+                </div>
+
+                {filteredProducts.length > 0 && (
+                  <div className="mt-2 max-h-48 overflow-y-auto rounded-xl border border-gray-200 bg-white p-1 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+                    {filteredProducts.map((product) => (
+                      <button
+                        key={product.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedProductId(product.id);
+                          setProductSearch(product.name);
+                        }}
+                        className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition ${
+                          selectedProductId === product.id
+                            ? 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-300'
+                            : 'text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-800'
+                        }`}
+                      >
+                        <span>{product.name}</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">{product.quantity} und</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {productSearch.trim() && filteredProducts.length === 0 && (
+                  <p className="mt-2 text-xs text-red-600 dark:text-red-400">Nenhum produto encontrado para essa busca.</p>
+                )}
               </div>
 
               <div>
