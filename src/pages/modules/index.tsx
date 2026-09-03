@@ -1363,11 +1363,6 @@ export function AcompanhamentoPage() {
     loadOrders(user.id).then((items) => setOrders(items));
   }, [user?.id]);
 
-  useEffect(() => {
-    if (!user?.id || orders.length === 0) return;
-    void saveOrders(user.id, orders);
-  }, [orders, user?.id]);
-
   const pendingOrders = useMemo(
     () => orders.filter((order) => order.status !== 'Concluída').sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
     [orders],
