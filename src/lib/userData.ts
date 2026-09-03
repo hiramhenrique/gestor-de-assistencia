@@ -38,7 +38,12 @@ export async function loadUserCollection<T extends { id: string }>(userId: strin
 }
 
 export async function saveUserCollection<T extends { id: string }>(userId: string, name: UserCollectionName, items: T[]) {
-  if (!userId) return;
+  if (!userId || !Array.isArray(items)) return;
+
+  // Proteção contra sincronização acidental: uma lista vazia não deve apagar toda a coleção
+  // de um usuário durante o carregamento inicial ou um estado temporário da tela.
+  if (items.length === 0) return;
+
   const ref = getUserCollectionRef(userId, name);
   const snapshot = await getDocs(ref);
   await Promise.all(snapshot.docs.map((item) => deleteDoc(doc(ref, item.id))));
