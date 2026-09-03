@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState, type ReactElement } from 'react';
-import { BatteryCharging, Cpu, FileText, PlusCircle, Plug2, Printer, Search, Sparkles, Trash2, Wrench } from 'lucide-react';
+import { BatteryCharging, Cpu, FileText, MessageCircle, PlusCircle, Plug2, Printer, Search, Sparkles, Trash2, Wrench } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import Modal from '../../components/ui/Modal';
 import { useAuth } from '../../contexts/AuthContext';
+import { getWhatsAppTarget } from '../../utils/masks';
 import { loadOrcamentos, saveOrcamentos, type BudgetCategory, type BudgetItem } from './orcamentosData';
 
 function toCurrency(value: number) {
@@ -28,6 +29,9 @@ export default function OrcamentosPage() {
   const [query, setQuery] = useState('');
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [itemToDelete, setItemToDelete] = useState<BudgetItem | null>(null);
+  const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
+  const [whatsAppPhone, setWhatsAppPhone] = useState('');
+  const [whatsAppClientName, setWhatsAppClientName] = useState('');
 
   useEffect(() => {
     if (!user?.id) return;
@@ -164,6 +168,32 @@ export default function OrcamentosPage() {
     setSelectedItemIds([]);
   };
 
+  const sendBudgetByWhatsApp = () => {
+    if (selectedItems.length === 0) return;
+
+    const target = getWhatsAppTarget(whatsAppPhone);
+    if (!target) return;
+
+    const clientName = whatsAppClientName.trim() || 'Cliente';
+    const lines = selectedItems.map((item) => `- ${item.model} (${getCategoryLabel(item.category)}) — ${toCurrency(item.value)}`).join('\n');
+    const message = [
+      `Olá ${clientName}!`,
+      '',
+      'Aqui está o seu orçamento atual:',
+      '',
+      lines,
+      '',
+      `Total: ${toCurrency(totalBudget)}`,
+      '',
+      `Atenciosamente, ${user?.fullName || 'Equipe'}.`,
+    ].join('\n');
+
+    window.open(`https://wa.me/${target}?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
+    setShowWhatsAppModal(false);
+    setWhatsAppPhone('');
+    setWhatsAppClientName('');
+  };
+
   return (
     <div className="space-y-4">
       <div className="rounded-2xl border border-violet-100 bg-white p-4 shadow-sm dark:border-violet-900/40 dark:bg-gray-900">
@@ -181,6 +211,9 @@ export default function OrcamentosPage() {
             </div>
             <Button variant="secondary" disabled title="Disponível em breve">
               <Printer className="h-4 w-4" /> Imprimir
+            </Button>
+            <Button variant="outline" onClick={() => setShowWhatsAppModal(true)} disabled={selectedItems.length === 0}>
+              <MessageCircle className="h-4 w-4" /> Enviar WhatsApp
             </Button>
             <Button variant="secondary" onClick={finishBudget} disabled={selectedItems.length === 0}>
               Finalizar orçamento
@@ -355,6 +388,42 @@ export default function OrcamentosPage() {
             <div className="flex gap-2">
               <Button onClick={confirmDeleteItem}>Sim, excluir</Button>
               <Button variant="secondary" onClick={() => { setShowDeleteConfirm(false); setItemToDelete(null); }}>Cancelar</Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {showWhatsAppModal && (
+        <Modal title="Enviar orçamento por WhatsApp" onClose={() => { setShowWhatsAppModal(false); setWhatsAppPhone(''); setWhatsAppClientName(''); }} size="sm">
+          <div className="space-y-4 text-sm text-gray-700 dark:text-gray-300">
+            <label className="block">
+              <span className="mb-1 block font-medium">Cliente</span>
+              <input
+                value={whatsAppClientName}
+                onChange={(event) => setWhatsAppClientName(event.target.value)}
+                className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-violet-400 dark:border-gray-700 dark:bg-gray-800"
+                placeholder="Nome do cliente"
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block font-medium">Telefone</span>
+              <input
+                value={whatsAppPhone}
+                onChange={(event) => setWhatsAppPhone(event.target.value)}
+                className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-violet-400 dark:border-gray-700 dark:bg-gray-800"
+                placeholder="(11) 99999-9999"
+              />
+            </label>
+            <div className="rounded-xl border border-violet-200 bg-violet-50 p-3 text-xs text-violet-700 dark:border-violet-800 dark:bg-violet-900/20 dark:text-violet-300">
+              Será enviado o orçamento atual com os itens selecionados e o valor total.
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={sendBudgetByWhatsApp} disabled={!getWhatsAppTarget(whatsAppPhone)}>
+                Enviar
+              </Button>
+              <Button variant="secondary" onClick={() => { setShowWhatsAppModal(false); setWhatsAppPhone(''); setWhatsAppClientName(''); }}>
+                Cancelar
+              </Button>
             </div>
           </div>
         </Modal>
