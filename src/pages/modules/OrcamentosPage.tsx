@@ -213,10 +213,7 @@ export default function OrcamentosPage() {
     if (!payload) return;
 
     const link = `https://wa.me/${payload.target}?text=${encodeURIComponent(payload.message)}`;
-    const openedWindow = window.open(link, '_blank', 'noopener,noreferrer');
-    if (!openedWindow) {
-      window.location.href = link;
-    }
+    window.open(link, '_blank', 'noopener,noreferrer');
     setShowWhatsAppModal(false);
     setWhatsAppPhone('');
     setClientQuery('');
