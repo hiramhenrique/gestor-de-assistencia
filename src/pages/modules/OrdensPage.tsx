@@ -515,7 +515,7 @@ return (
                                 )}
                               </div>
                               <p className="mt-1 truncate text-xs text-gray-500 dark:text-gray-400">
-                                {order.id} · {hasPaymentInfo ? `Recebido: R$ ${Number(order.paymentReceived ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} · Gasto: R$ ${Number(order.paymentSpent ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'Pagamento pendente'}
+                                {order.id} · {hasPaymentInfo ? 'Pagamento registrado' : 'Pagamento pendente'}
                               </p>
                             </button>
                             <div className="flex items-center gap-1">
