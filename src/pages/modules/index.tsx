@@ -955,6 +955,45 @@ export function FluxoCaixaPage() {
   ]);
   const [expenseLabel, setExpenseLabel] = useState('');
   const [expenseValue, setExpenseValue] = useState('');
+  const [selectedPeriod, setSelectedPeriod] = useState<'hoje' | '7d' | '30d' | 'mes' | 'custom'>('30d');
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
+
+  const dateRanges = useMemo(() => {
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const oneWeekAgo = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6);
+    const oneMonthAgo = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 29);
+
+    return {
+      hoje: { start: startOfToday, end: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999) },
+      '7d': { start: oneWeekAgo, end: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999) },
+      '30d': { start: oneMonthAgo, end: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999) },
+      mes: { start: startOfMonth, end: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999) },
+    } as const;
+  }, []);
+
+  const matchesPeriod = (date: string | undefined) => {
+    if (!date) return false;
+
+    const currentDate = new Date(date);
+    if (Number.isNaN(currentDate.getTime())) return false;
+
+    if (selectedPeriod === 'custom') {
+      const startDate = customStartDate ? new Date(`${customStartDate}T00:00:00`) : null;
+      const endDate = customEndDate ? new Date(`${customEndDate}T23:59:59.999`) : null;
+
+      if (startDate && currentDate < startDate) return false;
+      if (endDate && currentDate > endDate) return false;
+      return true;
+    }
+
+    const range = dateRanges[selectedPeriod];
+    if (!range) return true;
+
+    return currentDate >= range.start && currentDate <= range.end;
+  };
 
   useEffect(() => {
     if (!user?.id) return;
@@ -986,31 +1025,41 @@ export function FluxoCaixaPage() {
     return Number.isFinite(parsed) ? parsed : 0;
   };
 
+  const filteredOrders = useMemo(
+    () => orders.filter((order) => matchesPeriod(order.createdAt)),
+    [orders, selectedPeriod, customStartDate, customEndDate],
+  );
+
+  const filteredSales = useMemo(
+    () => sales.filter((sale) => matchesPeriod(sale.createdAt)),
+    [sales, selectedPeriod, customStartDate, customEndDate],
+  );
+
   const serviceRevenue = useMemo(
-    () => orders.reduce((sum, order) => sum + parseMonetaryValue(order.serviceValue), 0),
-    [orders],
+    () => filteredOrders.reduce((sum, order) => sum + parseMonetaryValue(order.serviceValue), 0),
+    [filteredOrders],
   );
 
   const salesRevenue = useMemo(
-    () => sales.reduce((sum, sale) => sum + sale.total, 0),
-    [sales],
+    () => filteredSales.reduce((sum, sale) => sum + sale.total, 0),
+    [filteredSales],
   );
 
   const totalEntries = salesRevenue + serviceRevenue;
-  const totalDiscounts = sales.reduce((sum, sale) => sum + (sale.discount || 0), 0);
+  const totalDiscounts = filteredSales.reduce((sum, sale) => sum + (sale.discount || 0), 0);
   const totalExpenses = manualExpenses.reduce((sum, expense) => sum + expense.value, 0);
   const netProfit = totalEntries - totalExpenses - totalDiscounts;
 
   const paymentBreakdown = useMemo(() => {
     const labels = ['Dinheiro', 'Pix', 'Cartão', 'Transferência'];
     return labels.map((label) => {
-      const value = sales
+      const value = filteredSales
         .filter((sale) => sale.paymentMethod === label)
         .reduce((sum, sale) => sum + sale.total, 0);
 
       return { label, value };
     });
-  }, [sales]);
+  }, [filteredSales]);
 
   const maxPaymentValue = Math.max(...paymentBreakdown.map((item) => item.value), 1);
 
@@ -1022,7 +1071,7 @@ export function FluxoCaixaPage() {
   const maxRevenueSource = Math.max(...revenueSources.map((item) => item.value), 1);
 
   const recentMovements = useMemo(() => {
-    const salesMovements = sales.map((sale) => ({
+    const salesMovements = filteredSales.map((sale) => ({
       id: sale.id,
       label: `Venda · ${sale.items.length} item(ns)`,
       value: sale.total,
@@ -1030,7 +1079,7 @@ export function FluxoCaixaPage() {
       type: 'Entrada' as const,
     }));
 
-    const serviceMovements = orders.map((order) => ({
+    const serviceMovements = filteredOrders.map((order) => ({
       id: order.id,
       label: `${order.client} · ${order.device}`,
       value: parseMonetaryValue(order.serviceValue),
@@ -1041,7 +1090,7 @@ export function FluxoCaixaPage() {
     return [...salesMovements, ...serviceMovements]
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
       .slice(0, 8);
-  }, [orders, sales]);
+  }, [filteredOrders, filteredSales]);
 
   const addExpense = () => {
     const label = expenseLabel.trim();
@@ -1059,13 +1108,64 @@ export function FluxoCaixaPage() {
   return (
     <div className="space-y-5">
       <div className="rounded-2xl border border-emerald-100 bg-white p-4 shadow-sm dark:border-emerald-900/40 dark:bg-gray-900">
-        <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
-            <Wallet className="h-5 w-5" />
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+              <Wallet className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-600 dark:text-emerald-400">Fluxo de Caixa</p>
+              <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Financeiro da empresa</h2>
+            </div>
           </div>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-600 dark:text-emerald-400">Fluxo de Caixa</p>
-            <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Financeiro da empresa</h2>
+
+          <div className="flex flex-col gap-3 md:flex-row md:items-center">
+            <div className="flex flex-wrap gap-2">
+              {(['hoje', '7d', '30d', 'mes'] as const).map((period) => (
+                <button
+                  key={period}
+                  type="button"
+                  onClick={() => setSelectedPeriod(period)}
+                  className={`rounded-lg px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] transition ${
+                    selectedPeriod === period
+                      ? 'bg-emerald-600 text-white shadow-sm'
+                      : 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  {period === 'hoje' ? 'Hoje' : period === '7d' ? '7 dias' : period === '30d' ? '30 dias' : 'Mês'}
+                </button>
+              ))}
+
+              <button
+                type="button"
+                onClick={() => setSelectedPeriod('custom')}
+                className={`rounded-lg px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] transition ${
+                  selectedPeriod === 'custom'
+                    ? 'bg-violet-600 text-white shadow-sm'
+                    : 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700'
+                }`}
+              >
+                Personalizado
+              </button>
+            </div>
+
+            {selectedPeriod === 'custom' && (
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  type="date"
+                  value={customStartDate}
+                  onChange={(event) => setCustomStartDate(event.target.value)}
+                  className="rounded-lg border border-gray-300 bg-white px-2.5 py-2 text-sm text-gray-900 outline-none focus:border-emerald-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                />
+                <span className="text-xs uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400">até</span>
+                <input
+                  type="date"
+                  value={customEndDate}
+                  onChange={(event) => setCustomEndDate(event.target.value)}
+                  className="rounded-lg border border-gray-300 bg-white px-2.5 py-2 text-sm text-gray-900 outline-none focus:border-emerald-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                />
+              </div>
+            )}
           </div>
         </div>
       </div>
