@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactElement } from 'react';
-import { BatteryCharging, Cpu, FileText, MessageCircle, PlusCircle, Plug2, Printer, Search, Sparkles, Trash2, Wrench } from 'lucide-react';
+import { BatteryCharging, Cpu, FileText, PlusCircle, Plug2, Printer, Search, Sparkles, Trash2, Wrench } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import Modal from '../../components/ui/Modal';
 import { useAuth } from '../../contexts/AuthContext';
