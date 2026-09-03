@@ -19,6 +19,8 @@ export interface ServiceOrder {
   observations: string;
   createdAt: string;
   serviceValue: string;
+  paymentMethod?: string;
+  paymentValue?: number;
   clientId: string;
   technicianId: string;
 }

@@ -46,7 +46,7 @@ const QUICK_ACTIONS: { id?: ModuleId; label: string; icon: ReactNode; color: str
   { id: 'orcamentos', label: 'Orçamento', icon: <ClipboardList className="w-5 h-5" />, color: 'cyan', action: 'navigate' },
   { id: 'estoque', label: 'Estoque', icon: <Package className="w-5 h-5" />, color: 'green', action: 'navigate' },
   { id: 'vendas', label: 'Venda', icon: <ClipboardList className="w-5 h-5" />, color: 'emerald', action: 'navigate' },
-  { label: 'Fluxo de Caixa', icon: <Activity className="w-5 h-5" />, color: 'red', action: 'disabled' },
+  { id: 'fluxo-caixa', label: 'Fluxo de Caixa', icon: <Activity className="w-5 h-5" />, color: 'red', action: 'navigate' },
 ];
 
 function parseDateTime(value: string) {
