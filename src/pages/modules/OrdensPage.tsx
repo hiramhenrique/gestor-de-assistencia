@@ -529,9 +529,9 @@ return (
                                 });
                                 setShowPaymentModal(true);
                               }}
-                              className={`rounded-lg px-2.5 py-2 text-[11px] font-semibold ${hasPaymentInfo ? 'bg-slate-700 text-white hover:bg-slate-800' : 'bg-emerald-600 text-white hover:bg-emerald-700'}`}
+                              className={`rounded-md px-2 py-1.5 text-[10px] font-medium ${hasPaymentInfo ? 'bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600' : 'bg-emerald-600 text-white hover:bg-emerald-700'}`}
                             >
-                              {hasPaymentInfo ? 'Editar forma de pagamento' : 'Adicionar pagamento'}
+                              {hasPaymentInfo ? 'Editar forma de pagamento' : 'Inserir forma de pagamento'}
                             </button>
                           </div>
                         );
