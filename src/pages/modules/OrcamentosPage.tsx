@@ -32,9 +32,9 @@ export default function OrcamentosPage() {
   const [itemToDelete, setItemToDelete] = useState<BudgetItem | null>(null);
   const [clients, setClients] = useState<ClientRecord[]>([]);
   const [selectedClientId, setSelectedClientId] = useState<string>('');
+  const [clientQuery, setClientQuery] = useState('');
   const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
   const [whatsAppPhone, setWhatsAppPhone] = useState('');
-  const [whatsAppClientName, setWhatsAppClientName] = useState('');
 
   useEffect(() => {
     if (!user?.id) return;
@@ -172,10 +172,20 @@ export default function OrcamentosPage() {
     setSelectedItemIds([]);
   };
 
-  const buildBudgetMessage = (overrideClientName?: string, overridePhone?: string) => {
-    const currentClient = clients.find((client) => client.id === selectedClientId);
-    const clientName = (overrideClientName ?? whatsAppClientName ?? currentClient?.name ?? '').trim() || 'Cliente';
-    const phone = (overridePhone ?? whatsAppPhone ?? currentClient?.phone ?? '').trim();
+  const selectedClient = useMemo(
+    () => clients.find((client) => client.id === selectedClientId) ?? null,
+    [clients, selectedClientId]
+  );
+
+  const filteredClients = useMemo(() => {
+    const search = clientQuery.trim().toLowerCase();
+    if (!search) return clients.slice(0, 8);
+    return clients.filter((client) => [client.name, client.phone, client.email].join(' ').toLowerCase().includes(search));
+  }, [clientQuery, clients]);
+
+  const buildBudgetMessage = (overridePhone?: string) => {
+    const clientName = selectedClient?.name || 'Cliente';
+    const phone = (overridePhone ?? whatsAppPhone ?? selectedClient?.phone ?? '').trim();
     const target = getWhatsAppTarget(phone);
     if (!target) return null;
 
@@ -205,7 +215,7 @@ export default function OrcamentosPage() {
     window.open(`https://wa.me/${payload.target}?text=${encodeURIComponent(payload.message)}`, '_blank', 'noopener,noreferrer');
     setShowWhatsAppModal(false);
     setWhatsAppPhone('');
-    setWhatsAppClientName('');
+    setClientQuery('');
     setSelectedClientId('');
   };
 
@@ -240,8 +250,16 @@ export default function OrcamentosPage() {
             <Button variant="secondary" disabled title="Disponível em breve">
               <Printer className="h-4 w-4" /> Imprimir
             </Button>
-            <Button variant="outline" onClick={() => setShowWhatsAppModal(true)} disabled={selectedItems.length === 0}>
-              <MessageCircle className="h-4 w-4" /> Enviar WhatsApp
+            <Button
+              variant="outline"
+              onClick={() => setShowWhatsAppModal(true)}
+              disabled={selectedItems.length === 0}
+              className="border-[#25D366] bg-[#25D366] text-white hover:bg-[#1ea853] dark:border-[#25D366] dark:hover:bg-[#1ea853]"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4 fill-current">
+                <path d="M19.11 4.89A9.22 9.22 0 0 0 12.03 2.5C6.63 2.5 2.24 6.89 2.24 12.3c0 1.76.48 3.45 1.39 4.95L2.5 21.5l4.41-1.14A9.8 9.8 0 0 0 12.03 21.5c5.39 0 9.78-4.39 9.78-9.8 0-2.61-1.01-5.08-2.7-6.81Zm-7.08 14.9c-1.32 0-2.63-.36-3.78-1.04l-.27-.16-2.62.68.7-2.56-.18-.28a8.23 8.23 0 0 1-1.26-4.38c0-4.56 3.71-8.27 8.27-8.27 2.21 0 4.29.86 5.86 2.42 1.56 1.57 2.41 3.67 2.41 5.88 0 4.56-3.71 8.27-8.27 8.27Zm4.53-6.2c-.25-.12-1.47-.73-1.7-.81-.23-.08-.4-.12-.57.12-.17.24-.66.81-.81 1-.15.17-.3.2-.55.07-.25-.12-1.06-.39-2.02-1.25-.75-.67-1.26-1.49-1.4-1.74-.15-.25-.02-.38.11-.5.11-.11.25-.29.37-.44.12-.15.17-.25.25-.42.08-.17.04-.31-.02-.44-.06-.12-.57-1.39-.78-1.9-.2-.5-.42-.43-.57-.44h-.49c-.17 0-.44.06-.67.31-.23.25-.87.84-.87 2.05 0 1.2.9 2.38.1 3.15.13.19.86 1.38 2.1 2.12.98.51 1.7.7 2.32.79.95.14 1.81.12 2.48.07.76-.05 1.47-.6 1.68-1.18.21-.58.21-1.09.15-1.18-.06-.09-.22-.15-.47-.27Z"/>
+              </svg>
+              Enviar WhatsApp
             </Button>
             <Button variant="secondary" onClick={finishBudget} disabled={selectedItems.length === 0}>
               Finalizar orçamento
@@ -422,52 +440,66 @@ export default function OrcamentosPage() {
       )}
 
       {showWhatsAppModal && (
-        <Modal title="Enviar orçamento por WhatsApp" onClose={() => { setShowWhatsAppModal(false); setWhatsAppPhone(''); setWhatsAppClientName(''); setSelectedClientId(''); }} size="sm">
+        <Modal title="Enviar orçamento por WhatsApp" onClose={() => { setShowWhatsAppModal(false); setWhatsAppPhone(''); setClientQuery(''); setSelectedClientId(''); }} size="sm">
           <div className="space-y-4 text-sm text-gray-700 dark:text-gray-300">
             <label className="block">
-              <span className="mb-1 block font-medium">Cliente cadastrado</span>
-              <select
-                value={selectedClientId}
+              <span className="mb-1 block font-medium">Buscar cliente</span>
+              <input
+                value={clientQuery}
                 onChange={(event) => {
-                  const nextId = event.target.value;
-                  setSelectedClientId(nextId);
-                  const nextClient = clients.find((client) => client.id === nextId);
-                  if (nextClient) {
-                    setWhatsAppClientName(nextClient.name);
-                    setWhatsAppPhone(nextClient.phone);
-                  } else {
-                    setWhatsAppClientName('');
-                    setWhatsAppPhone('');
+                  const nextValue = event.target.value;
+                  setClientQuery(nextValue);
+                  if (selectedClientId && !nextValue.trim()) {
+                    setSelectedClientId('');
+                  }
+                  if (nextValue.trim() && selectedClientId) {
+                    setSelectedClientId('');
                   }
                 }}
                 className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-violet-400 dark:border-gray-700 dark:bg-gray-800"
-              >
-                <option value="">Usar outro cliente / telefone</option>
-                {clients.map((client) => (
-                  <option key={client.id} value={client.id}>{client.name}</option>
-                ))}
-              </select>
-            </label>
-            <label className="block">
-              <span className="mb-1 block font-medium">Nome do cliente</span>
-              <input
-                value={whatsAppClientName}
-                onChange={(event) => setWhatsAppClientName(event.target.value)}
-                className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-violet-400 dark:border-gray-700 dark:bg-gray-800"
-                placeholder="Nome do cliente"
+                placeholder="Digite o nome ou telefone do cliente"
               />
             </label>
+
+            {clientQuery.trim() && filteredClients.length > 0 && (
+              <div className="max-h-40 space-y-1 overflow-y-auto rounded-xl border border-gray-200 bg-gray-50 p-2 dark:border-gray-700 dark:bg-gray-800">
+                {filteredClients.map((client) => (
+                  <button
+                    key={client.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedClientId(client.id);
+                      setClientQuery(client.name);
+                      setWhatsAppPhone(client.phone);
+                    }}
+                    className="flex w-full items-center justify-between rounded-lg px-2 py-2 text-left transition hover:bg-violet-50 dark:hover:bg-violet-900/20"
+                  >
+                    <div>
+                      <div className="font-medium text-gray-900 dark:text-gray-100">{client.name}</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">{client.phone || 'Sem telefone cadastrado'}</div>
+                    </div>
+                    <span className="text-[10px] uppercase tracking-[0.2em] text-violet-500">Selecionar</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
             <label className="block">
               <span className="mb-1 block font-medium">Telefone</span>
               <input
                 value={whatsAppPhone}
-                onChange={(event) => setWhatsAppPhone(event.target.value)}
+                onChange={(event) => {
+                  setWhatsAppPhone(event.target.value);
+                  if (selectedClientId) {
+                    setSelectedClientId('');
+                  }
+                }}
                 className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-violet-400 dark:border-gray-700 dark:bg-gray-800"
                 placeholder="(11) 99999-9999"
               />
             </label>
             <div className="rounded-xl border border-violet-200 bg-violet-50 p-3 text-xs text-violet-700 dark:border-violet-800 dark:bg-violet-900/20 dark:text-violet-300">
-              Você pode usar um cliente cadastrado ou informar um telefone novo. A mensagem do orçamento será gerada automaticamente.
+              Faça a busca pelo cliente cadastrado ou informe um telefone novo para enviar o orçamento.
             </div>
             <div className="flex flex-wrap gap-2">
               <Button onClick={sendBudgetByWhatsApp} disabled={!buildBudgetMessage()}>
@@ -476,7 +508,7 @@ export default function OrcamentosPage() {
               <Button variant="secondary" onClick={copyBudgetMessage} disabled={!buildBudgetMessage()}>
                 Copiar mensagem
               </Button>
-              <Button variant="secondary" onClick={() => { setShowWhatsAppModal(false); setWhatsAppPhone(''); setWhatsAppClientName(''); setSelectedClientId(''); }}>
+              <Button variant="secondary" onClick={() => { setShowWhatsAppModal(false); setWhatsAppPhone(''); setClientQuery(''); setSelectedClientId(''); }}>
                 Cancelar
               </Button>
             </div>
