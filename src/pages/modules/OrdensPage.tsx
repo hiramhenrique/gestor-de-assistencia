@@ -163,6 +163,7 @@ export default function OrdensPage({ onNavigate }: OrdensPageProps) {
 
   const handleCreateOrder = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+
     const selectedClient = clients.find((client) => client.name.toLowerCase() === draft.client.trim().toLowerCase());
     const selectedEmployee = employees.find((employee) => employee.name.toLowerCase() === draft.technician.trim().toLowerCase());
     const paymentState = getPaymentStateForStatus(draft.status, isEditing ? selectedOrder ?? undefined : undefined);
@@ -190,56 +191,58 @@ export default function OrdensPage({ onNavigate }: OrdensPageProps) {
       technicianId: selectedEmployee?.id || draft.technicianId || '',
     };
 
-    if (isEditing && selectedOrder) {
-      const updatedOrders = orders.map((order) =>
-        order.id === selectedOrder.id
-          ? { ...order, ...baseOrder }
-          : order
-      );
-      setOrders(updatedOrders);
-      await saveOrders(user?.id, updatedOrders);
+    let savedOrderId: string | null = null;
 
-      await savePublicStatus({
-        orderId: selectedOrder.id,
-        client: baseOrder.client,
-        device: baseOrder.device,
-        phone: baseOrder.phone,
-        status: baseOrder.status,
-        updatedAt: new Date().toISOString(),
-        shareUrl: buildPublicStatusUrl(selectedOrder.id),
-      });
+    try {
+      if (isEditing && selectedOrder) {
+        const updatedOrders = orders.map((order) =>
+          order.id === selectedOrder.id
+            ? { ...order, ...baseOrder }
+            : order
+        );
+        setOrders(updatedOrders);
+        await saveOrders(user?.id, updatedOrders);
 
-      setSelectedId(selectedOrder.id);
-    } else {
-      const nextNumber = orders.reduce((max, order) => {
-        const parsed = Number(order.id.match(/\d+/)?.[0] ?? 0);
-        return Math.max(max, parsed);
-      }, 0) + 1;
-      const nextOrder: ServiceOrder = {
-        id: `OS-${String(nextNumber).padStart(4, '0')}`,
-        ...baseOrder,
-      };
+        savedOrderId = selectedOrder.id;
+        setSelectedId(selectedOrder.id);
+      } else {
+        const nextNumber = orders.reduce((max, order) => {
+          const parsed = Number(order.id.match(/\d+/)?.[0] ?? 0);
+          return Math.max(max, parsed);
+        }, 0) + 1;
+        const nextOrder: ServiceOrder = {
+          id: `OS-${String(nextNumber).padStart(4, '0')}`,
+          ...baseOrder,
+        };
 
-      const next = [nextOrder, ...orders];
-      setOrders(next);
-      await saveOrders(user?.id, next);
+        const next = [nextOrder, ...orders];
+        setOrders(next);
+        await saveOrders(user?.id, next);
 
-      await savePublicStatus({
-        orderId: nextOrder.id,
-        client: nextOrder.client,
-        device: nextOrder.device,
-        phone: nextOrder.phone,
-        status: nextOrder.status,
-        updatedAt: new Date().toISOString(),
-        shareUrl: buildPublicStatusUrl(nextOrder.id),
-      });
+        savedOrderId = nextOrder.id;
+        setSelectedId(nextOrder.id);
+      }
 
-      setSelectedId(nextOrder.id);
+      if (savedOrderId) {
+        try {
+          await savePublicStatus({
+            orderId: savedOrderId,
+            client: baseOrder.client,
+            device: baseOrder.device,
+            phone: baseOrder.phone,
+            status: baseOrder.status,
+            updatedAt: new Date().toISOString(),
+            shareUrl: buildPublicStatusUrl(savedOrderId),
+          });
+        } catch (statusError) {
+          console.error('Erro ao salvar status público da ordem:', statusError);
+        }
+      }
+    } finally {
+      setShowForm(false);
+      setIsEditing(false);
+      setDraft(emptyDraft);
     }
-
-    setShowForm(false);
-    setIsEditing(false);
-    setDraft(emptyDraft);
   };
 
   const handleDeleteOrder = async () => {
