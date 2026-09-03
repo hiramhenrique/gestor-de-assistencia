@@ -502,7 +502,6 @@ return (
                     ) : (
                       completedOrders.map((order) => {
                         const hasPaymentInfo = Boolean(order.paymentMethod || typeof order.paymentReceived === 'number' || typeof order.paymentSpent === 'number');
-                        const visualState = getOrderVisualState(order);
 
                         return (
                           <div key={order.id} className={`grid grid-cols-[1fr,auto] items-center gap-2 px-3 py-3 text-sm ${selectedOrder?.id === order.id ? 'bg-slate-100/80 dark:bg-slate-800/40' : 'bg-transparent'}`}>
