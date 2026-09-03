@@ -40,14 +40,20 @@ export async function loadUserCollection<T extends { id: string }>(userId: strin
 export async function saveUserCollection<T extends { id: string }>(userId: string, name: UserCollectionName, items: T[]) {
   if (!userId || !Array.isArray(items)) return;
 
-  // Proteção contra sincronização acidental: uma lista vazia não deve apagar toda a coleção
-  // de um usuário durante o carregamento inicial ou um estado temporário da tela.
-  if (items.length === 0) return;
-
+  // Evita apagar a coleção inteira quando a lista local estiver vazia ou incompleta.
+  // Em vez disso, salvamos cada documento individualmente e removemos apenas os itens
+  // que não existirem mais na lista atual.
   const ref = getUserCollectionRef(userId, name);
   const snapshot = await getDocs(ref);
-  await Promise.all(snapshot.docs.map((item) => deleteDoc(doc(ref, item.id))));
+  const existingIds = new Set(snapshot.docs.map((item) => item.id));
+  const nextIds = new Set(items.map((item) => item.id).filter(Boolean));
+
+  if (items.length === 0) return;
+
   await Promise.all(items.map((item) => setDoc(doc(ref, item.id), item)));
+
+  const staleDocs = snapshot.docs.filter((item) => !nextIds.has(item.id));
+  await Promise.all(staleDocs.map((item) => deleteDoc(doc(ref, item.id))));
 }
 
 export async function clearUserCollections(userId: string) {
