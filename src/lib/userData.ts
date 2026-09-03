@@ -45,7 +45,6 @@ export async function saveUserCollection<T extends { id: string }>(userId: strin
   // que não existirem mais na lista atual.
   const ref = getUserCollectionRef(userId, name);
   const snapshot = await getDocs(ref);
-  const existingIds = new Set(snapshot.docs.map((item) => item.id));
   const nextIds = new Set(items.map((item) => item.id).filter(Boolean));
 
   if (items.length === 0) return;
