@@ -114,6 +114,30 @@ export default function OrdensPage({ onNavigate }: OrdensPageProps) {
     };
   };
 
+  const getPaymentStateForStatus = (status: OrderStatus, currentOrder?: ServiceOrder) => {
+    if (status !== 'Concluída') {
+      return {
+        paymentMethod: undefined,
+        paymentReceived: undefined,
+        paymentSpent: undefined,
+      };
+    }
+
+    if (currentOrder && currentOrder.status === 'Concluída') {
+      return {
+        paymentMethod: currentOrder.paymentMethod,
+        paymentReceived: currentOrder.paymentReceived,
+        paymentSpent: currentOrder.paymentSpent,
+      };
+    }
+
+    return {
+      paymentMethod: undefined,
+      paymentReceived: undefined,
+      paymentSpent: undefined,
+    };
+  };
+
   const handleRegisterPayment = async () => {
     if (!paymentTarget || !user?.id) return;
 
@@ -141,6 +165,7 @@ export default function OrdensPage({ onNavigate }: OrdensPageProps) {
     event.preventDefault();
     const selectedClient = clients.find((client) => client.name.toLowerCase() === draft.client.trim().toLowerCase());
     const selectedEmployee = employees.find((employee) => employee.name.toLowerCase() === draft.technician.trim().toLowerCase());
+    const paymentState = getPaymentStateForStatus(draft.status, isEditing ? selectedOrder ?? undefined : undefined);
     const baseOrder: Omit<ServiceOrder, 'id'> = {
       client: selectedClient?.name || draft.client || 'Cliente não informado',
       phone: selectedClient?.phone || draft.phone || 'Não informado',
@@ -158,9 +183,9 @@ export default function OrdensPage({ onNavigate }: OrdensPageProps) {
       observations: draft.observations || 'Nenhuma observação.',
       createdAt: `${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`,
       serviceValue: draft.serviceValue || 'R$ 0,00',
-      paymentMethod: draft.status === 'Concluída' ? (selectedOrder?.paymentMethod ?? undefined) : undefined,
-      paymentReceived: draft.status === 'Concluída' ? (selectedOrder?.paymentReceived ?? undefined) : undefined,
-      paymentSpent: draft.status === 'Concluída' ? (selectedOrder?.paymentSpent ?? undefined) : undefined,
+      paymentMethod: paymentState.paymentMethod,
+      paymentReceived: paymentState.paymentReceived,
+      paymentSpent: paymentState.paymentSpent,
       clientId: selectedClient?.id || draft.clientId || '',
       technicianId: selectedEmployee?.id || draft.technicianId || '',
     };
@@ -660,8 +685,8 @@ return (
                     </div>
                     <h3 className="mt-2 text-lg font-semibold text-gray-900 dark:text-gray-100">Resumo da O.S.</h3>
                   </div>
-                  <span className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${statusStyles[selectedOrder.status]}`}>
-                    {selectedOrder.status}
+                  <span className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${getOrderVisualState(selectedOrder).badgeClass}`}>
+                    {getOrderVisualState(selectedOrder).label}
                   </span>
                 </div>
                 <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800/70">
@@ -708,7 +733,7 @@ return (
           )}
 
           {showPaymentModal && paymentTarget && (
-            <Modal title="Pagamento da O.S." onClose={() => { setShowPaymentModal(false); setPaymentTarget(null); setPaymentDraft({ method: 'Dinheiro', value: '' }); }} size="sm">
+            <Modal title="Pagamento da O.S." onClose={() => { setShowPaymentModal(false); setPaymentTarget(null); setPaymentDraft({ method: 'Dinheiro', received: '', spent: '' }); }} size="sm">
               <div className="space-y-3 text-sm text-gray-600 dark:text-gray-300">
                 <p className="font-medium text-gray-900 dark:text-gray-100">{paymentTarget.id} · {paymentTarget.client}</p>
 
