@@ -212,7 +212,11 @@ export default function OrcamentosPage() {
     const payload = buildBudgetMessage();
     if (!payload) return;
 
-    window.open(`https://wa.me/${payload.target}?text=${encodeURIComponent(payload.message)}`, '_blank', 'noopener,noreferrer');
+    const link = `https://wa.me/${payload.target}?text=${encodeURIComponent(payload.message)}`;
+    const openedWindow = window.open(link, '_blank', 'noopener,noreferrer');
+    if (!openedWindow) {
+      window.location.href = link;
+    }
     setShowWhatsAppModal(false);
     setWhatsAppPhone('');
     setClientQuery('');
@@ -250,17 +254,17 @@ export default function OrcamentosPage() {
             <Button variant="secondary" disabled title="Disponível em breve">
               <Printer className="h-4 w-4" /> Imprimir
             </Button>
-            <Button
-              variant="outline"
+            <button
+              type="button"
               onClick={() => setShowWhatsAppModal(true)}
               disabled={selectedItems.length === 0}
-              className="border-[#25D366] bg-[#25D366] text-white hover:bg-[#1ea853] dark:border-[#25D366] dark:hover:bg-[#1ea853]"
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-green-500 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-green-600 disabled:cursor-not-allowed disabled:bg-gray-300 dark:disabled:bg-gray-700"
             >
-              <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4 fill-current">
-                <path d="M19.11 4.89A9.22 9.22 0 0 0 12.03 2.5C6.63 2.5 2.24 6.89 2.24 12.3c0 1.76.48 3.45 1.39 4.95L2.5 21.5l4.41-1.14A9.8 9.8 0 0 0 12.03 21.5c5.39 0 9.78-4.39 9.78-9.8 0-2.61-1.01-5.08-2.7-6.81Zm-7.08 14.9c-1.32 0-2.63-.36-3.78-1.04l-.27-.16-2.62.68.7-2.56-.18-.28a8.23 8.23 0 0 1-1.26-4.38c0-4.56 3.71-8.27 8.27-8.27 2.21 0 4.29.86 5.86 2.42 1.56 1.57 2.41 3.67 2.41 5.88 0 4.56-3.71 8.27-8.27 8.27Zm4.53-6.2c-.25-.12-1.47-.73-1.7-.81-.23-.08-.4-.12-.57.12-.17.24-.66.81-.81 1-.15.17-.3.2-.55.07-.25-.12-1.06-.39-2.02-1.25-.75-.67-1.26-1.49-1.4-1.74-.15-.25-.02-.38.11-.5.11-.11.25-.29.37-.44.12-.15.17-.25.25-.42.08-.17.04-.31-.02-.44-.06-.12-.57-1.39-.78-1.9-.2-.5-.42-.43-.57-.44h-.49c-.17 0-.44.06-.67.31-.23.25-.87.84-.87 2.05 0 1.2.9 2.38.1 3.15.13.19.86 1.38 2.1 2.12.98.51 1.7.7 2.32.79.95.14 1.81.12 2.48.07.76-.05 1.47-.6 1.68-1.18.21-.58.21-1.09.15-1.18-.06-.09-.22-.15-.47-.27Z"/>
+              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className="h-4 w-4">
+                <path d="M20.52 3.48A11.86 11.86 0 0 0 12.08 0C5.48 0 .09 5.39.09 12.01c0 2.1.55 4.15 1.59 5.95L0 24l6.18-1.62A11.93 11.93 0 0 0 12.08 24c6.62 0 12-5.39 12-12.01 0-3.2-1.24-6.22-3.56-8.51ZM12.08 21.9c-1.89 0-3.74-.5-5.35-1.45l-.38-.23-3.67.96 1-3.57-.24-.37a9.88 9.88 0 0 1-1.54-5.22c0-5.46 4.46-9.9 9.96-9.9a9.87 9.87 0 0 1 7 2.92 9.78 9.78 0 0 1 2.92 7.02c.01 5.46-4.45 9.9-9.91 9.9Zm5.43-7.4c-.3-.15-1.76-.87-2.03-.97-.27-.1-.46-.15-.66.15-.19.3-.74.97-.91 1.17-.17.2-.33.22-.62.08-.3-.15-1.27-.47-2.41-1.49-.89-.79-1.49-1.77-1.66-2.07-.17-.3-.02-.46.13-.61.13-.13.3-.33.45-.5.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.08-.15-.66-1.6-.91-2.2-.24-.57-.48-.49-.66-.49h-.57c-.2 0-.52.07-.79.37-.27.3-1.03 1.01-1.03 2.46s1.05 2.84 1.2 3.04c.15.2 2.05 3.13 4.98 4.39.7.3 1.24.48 1.67.62.7.22 1.34.19 1.84.12.56-.08 1.76-.72 2.01-1.42.25-.7.25-1.3.18-1.42-.08-.12-.27-.2-.57-.35Z" />
               </svg>
               Enviar WhatsApp
-            </Button>
+            </button>
             <Button variant="secondary" onClick={finishBudget} disabled={selectedItems.length === 0}>
               Finalizar orçamento
             </Button>
