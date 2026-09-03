@@ -4,6 +4,7 @@ import Button from '../../components/ui/Button';
 import Modal from '../../components/ui/Modal';
 import { useAuth } from '../../contexts/AuthContext';
 import { getWhatsAppTarget } from '../../utils/masks';
+import { loadClients, type ClientRecord } from './clientsData';
 import { loadOrcamentos, saveOrcamentos, type BudgetCategory, type BudgetItem } from './orcamentosData';
 
 function toCurrency(value: number) {
@@ -29,14 +30,17 @@ export default function OrcamentosPage() {
   const [query, setQuery] = useState('');
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [itemToDelete, setItemToDelete] = useState<BudgetItem | null>(null);
+  const [clients, setClients] = useState<ClientRecord[]>([]);
+  const [selectedClientId, setSelectedClientId] = useState<string>('');
   const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
   const [whatsAppPhone, setWhatsAppPhone] = useState('');
   const [whatsAppClientName, setWhatsAppClientName] = useState('');
 
   useEffect(() => {
     if (!user?.id) return;
-    loadOrcamentos(user.id).then((savedItems) => {
+    Promise.all([loadOrcamentos(user.id), loadClients(user.id)]).then(([savedItems, savedClients]) => {
       setItems(savedItems);
+      setClients(savedClients);
     });
   }, [user?.id]);
 
@@ -168,30 +172,54 @@ export default function OrcamentosPage() {
     setSelectedItemIds([]);
   };
 
+  const buildBudgetMessage = (overrideClientName?: string, overridePhone?: string) => {
+    const currentClient = clients.find((client) => client.id === selectedClientId);
+    const clientName = (overrideClientName ?? whatsAppClientName ?? currentClient?.name ?? '').trim() || 'Cliente';
+    const phone = (overridePhone ?? whatsAppPhone ?? currentClient?.phone ?? '').trim();
+    const target = getWhatsAppTarget(phone);
+    if (!target) return null;
+
+    const lines = selectedItems.map((item) => `- ${item.model} (${getCategoryLabel(item.category)}) — ${toCurrency(item.value)}`).join('\n');
+    return {
+      target,
+      message: [
+        `Olá ${clientName}!`,
+        '',
+        'Aqui está o seu orçamento atual:',
+        '',
+        lines,
+        '',
+        `Total: ${toCurrency(totalBudget)}`,
+        '',
+        `Atenciosamente, ${user?.fullName || 'Equipe'}.`,
+      ].join('\n'),
+    };
+  };
+
   const sendBudgetByWhatsApp = () => {
     if (selectedItems.length === 0) return;
 
-    const target = getWhatsAppTarget(whatsAppPhone);
-    if (!target) return;
+    const payload = buildBudgetMessage();
+    if (!payload) return;
 
-    const clientName = whatsAppClientName.trim() || 'Cliente';
-    const lines = selectedItems.map((item) => `- ${item.model} (${getCategoryLabel(item.category)}) — ${toCurrency(item.value)}`).join('\n');
-    const message = [
-      `Olá ${clientName}!`,
-      '',
-      'Aqui está o seu orçamento atual:',
-      '',
-      lines,
-      '',
-      `Total: ${toCurrency(totalBudget)}`,
-      '',
-      `Atenciosamente, ${user?.fullName || 'Equipe'}.`,
-    ].join('\n');
-
-    window.open(`https://wa.me/${target}?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
+    window.open(`https://wa.me/${payload.target}?text=${encodeURIComponent(payload.message)}`, '_blank', 'noopener,noreferrer');
     setShowWhatsAppModal(false);
     setWhatsAppPhone('');
     setWhatsAppClientName('');
+    setSelectedClientId('');
+  };
+
+  const copyBudgetMessage = async () => {
+    if (selectedItems.length === 0) return;
+
+    const payload = buildBudgetMessage();
+    if (!payload) return;
+
+    try {
+      await navigator.clipboard.writeText(payload.message);
+    } catch {
+      window.prompt('Mensagem pronta para copiar', payload.message);
+    }
   };
 
   return (
@@ -394,10 +422,34 @@ export default function OrcamentosPage() {
       )}
 
       {showWhatsAppModal && (
-        <Modal title="Enviar orçamento por WhatsApp" onClose={() => { setShowWhatsAppModal(false); setWhatsAppPhone(''); setWhatsAppClientName(''); }} size="sm">
+        <Modal title="Enviar orçamento por WhatsApp" onClose={() => { setShowWhatsAppModal(false); setWhatsAppPhone(''); setWhatsAppClientName(''); setSelectedClientId(''); }} size="sm">
           <div className="space-y-4 text-sm text-gray-700 dark:text-gray-300">
             <label className="block">
-              <span className="mb-1 block font-medium">Cliente</span>
+              <span className="mb-1 block font-medium">Cliente cadastrado</span>
+              <select
+                value={selectedClientId}
+                onChange={(event) => {
+                  const nextId = event.target.value;
+                  setSelectedClientId(nextId);
+                  const nextClient = clients.find((client) => client.id === nextId);
+                  if (nextClient) {
+                    setWhatsAppClientName(nextClient.name);
+                    setWhatsAppPhone(nextClient.phone);
+                  } else {
+                    setWhatsAppClientName('');
+                    setWhatsAppPhone('');
+                  }
+                }}
+                className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-violet-400 dark:border-gray-700 dark:bg-gray-800"
+              >
+                <option value="">Usar outro cliente / telefone</option>
+                {clients.map((client) => (
+                  <option key={client.id} value={client.id}>{client.name}</option>
+                ))}
+              </select>
+            </label>
+            <label className="block">
+              <span className="mb-1 block font-medium">Nome do cliente</span>
               <input
                 value={whatsAppClientName}
                 onChange={(event) => setWhatsAppClientName(event.target.value)}
@@ -415,13 +467,16 @@ export default function OrcamentosPage() {
               />
             </label>
             <div className="rounded-xl border border-violet-200 bg-violet-50 p-3 text-xs text-violet-700 dark:border-violet-800 dark:bg-violet-900/20 dark:text-violet-300">
-              Será enviado o orçamento atual com os itens selecionados e o valor total.
+              Você pode usar um cliente cadastrado ou informar um telefone novo. A mensagem do orçamento será gerada automaticamente.
             </div>
-            <div className="flex gap-2">
-              <Button onClick={sendBudgetByWhatsApp} disabled={!getWhatsAppTarget(whatsAppPhone)}>
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={sendBudgetByWhatsApp} disabled={!buildBudgetMessage()}>
                 Enviar
               </Button>
-              <Button variant="secondary" onClick={() => { setShowWhatsAppModal(false); setWhatsAppPhone(''); setWhatsAppClientName(''); }}>
+              <Button variant="secondary" onClick={copyBudgetMessage} disabled={!buildBudgetMessage()}>
+                Copiar mensagem
+              </Button>
+              <Button variant="secondary" onClick={() => { setShowWhatsAppModal(false); setWhatsAppPhone(''); setWhatsAppClientName(''); setSelectedClientId(''); }}>
                 Cancelar
               </Button>
             </div>
