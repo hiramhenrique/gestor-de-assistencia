@@ -518,21 +518,30 @@ return (
                                 {order.id} · {hasPaymentInfo ? `Recebido: R$ ${Number(order.paymentReceived ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} · Gasto: R$ ${Number(order.paymentSpent ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'Pagamento pendente'}
                               </p>
                             </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setPaymentTarget(order);
-                                setPaymentDraft({
-                                  method: order.paymentMethod || 'Dinheiro',
-                                  received: order.paymentReceived !== undefined ? String(order.paymentReceived) : '',
-                                  spent: order.paymentSpent !== undefined ? String(order.paymentSpent) : '',
-                                });
-                                setShowPaymentModal(true);
-                              }}
-                              className={`rounded-md px-2 py-1.5 text-[10px] font-medium ${hasPaymentInfo ? 'bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600' : 'bg-emerald-600 text-white hover:bg-emerald-700'}`}
-                            >
-                              {hasPaymentInfo ? 'Editar forma de pagamento' : 'Inserir forma de pagamento'}
-                            </button>
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => handleEditOrder(order)}
+                                className="rounded-md bg-violet-600 px-2 py-1.5 text-[10px] font-medium text-white hover:bg-violet-700"
+                              >
+                                Editar O.S.
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setPaymentTarget(order);
+                                  setPaymentDraft({
+                                    method: order.paymentMethod || 'Dinheiro',
+                                    received: order.paymentReceived !== undefined ? String(order.paymentReceived) : '',
+                                    spent: order.paymentSpent !== undefined ? String(order.paymentSpent) : '',
+                                  });
+                                  setShowPaymentModal(true);
+                                }}
+                                className={`rounded-md px-2 py-1.5 text-[10px] font-medium ${hasPaymentInfo ? 'bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600' : 'bg-emerald-600 text-white hover:bg-emerald-700'}`}
+                              >
+                                {hasPaymentInfo ? 'Editar forma de pagamento' : 'Inserir forma de pagamento'}
+                              </button>
+                            </div>
                           </div>
                         );
                       })
