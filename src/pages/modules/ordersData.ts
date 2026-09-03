@@ -20,7 +20,8 @@ export interface ServiceOrder {
   createdAt: string;
   serviceValue: string;
   paymentMethod?: string;
-  paymentValue?: number;
+  paymentReceived?: number;
+  paymentSpent?: number;
   clientId: string;
   technicianId: string;
 }

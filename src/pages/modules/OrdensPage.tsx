@@ -64,7 +64,7 @@ export default function OrdensPage({ onNavigate }: OrdensPageProps) {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [printTarget, setPrintTarget] = useState<ServiceOrder | null>(null);
   const [paymentTarget, setPaymentTarget] = useState<ServiceOrder | null>(null);
-  const [paymentDraft, setPaymentDraft] = useState({ method: 'Dinheiro', value: '' });
+  const [paymentDraft, setPaymentDraft] = useState({ method: 'Dinheiro', received: '', spent: '' });
   const [isEditing, setIsEditing] = useState(false);
   const [statusFilter, setStatusFilter] = useState<'todos' | OrderStatus>('todos');
   const [priorityFilter, setPriorityFilter] = useState<'todos' | OrderPriority>('todos');
@@ -99,17 +99,33 @@ export default function OrdensPage({ onNavigate }: OrdensPageProps) {
   const activeOrders = useMemo(() => filteredOrders.filter((order) => order.status !== 'Concluída'), [filteredOrders]);
   const completedOrders = useMemo(() => filteredOrders.filter((order) => order.status === 'Concluída'), [filteredOrders]);
 
+  const getOrderVisualState = (order: ServiceOrder) => {
+    const hasPaymentInfo = Boolean(order.paymentMethod || typeof order.paymentReceived === 'number' || typeof order.paymentSpent === 'number');
+    if (order.status === 'Concluída' && hasPaymentInfo) {
+      return {
+        badgeClass: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
+        label: 'Concluída',
+      };
+    }
+
+    return {
+      badgeClass: statusStyles[order.status],
+      label: order.status,
+    };
+  };
+
   const handleRegisterPayment = async () => {
     if (!paymentTarget || !user?.id) return;
 
-    const parsedValue = Number(String(paymentDraft.value).replace(/[R$\s.]/g, '').replace(',', '.'));
-    const nextValue = Number.isFinite(parsedValue) ? parsedValue : Number(paymentTarget.serviceValue.replace(/[R$\s.]/g, '').replace(',', '.')) || 0;
+    const parsedReceived = Number(String(paymentDraft.received).replace(/[R$\s.]/g, '').replace(',', '.'));
+    const parsedSpent = Number(String(paymentDraft.spent).replace(/[R$\s.]/g, '').replace(',', '.'));
 
     const nextOrders = orders.map((order) => order.id === paymentTarget.id
       ? {
           ...order,
           paymentMethod: paymentDraft.method,
-          paymentValue: nextValue,
+          paymentReceived: Number.isFinite(parsedReceived) ? parsedReceived : 0,
+          paymentSpent: Number.isFinite(parsedSpent) ? parsedSpent : 0,
         }
       : order,
     );
@@ -118,7 +134,7 @@ export default function OrdensPage({ onNavigate }: OrdensPageProps) {
     await saveOrders(user.id, nextOrders);
     setShowPaymentModal(false);
     setPaymentTarget(null);
-    setPaymentDraft({ method: 'Dinheiro', value: '' });
+    setPaymentDraft({ method: 'Dinheiro', received: '', spent: '' });
   };
 
   const handleCreateOrder = async (event: FormEvent<HTMLFormElement>) => {
@@ -142,6 +158,9 @@ export default function OrdensPage({ onNavigate }: OrdensPageProps) {
       observations: draft.observations || 'Nenhuma observação.',
       createdAt: `${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`,
       serviceValue: draft.serviceValue || 'R$ 0,00',
+      paymentMethod: draft.status === 'Concluída' ? (selectedOrder?.paymentMethod ?? undefined) : undefined,
+      paymentReceived: draft.status === 'Concluída' ? (selectedOrder?.paymentReceived ?? undefined) : undefined,
+      paymentSpent: draft.status === 'Concluída' ? (selectedOrder?.paymentSpent ?? undefined) : undefined,
       clientId: selectedClient?.id || draft.clientId || '',
       technicianId: selectedEmployee?.id || draft.technicianId || '',
     };
@@ -456,35 +475,43 @@ return (
                     {completedOrders.length === 0 ? (
                       <div className="px-3 py-4 text-sm text-emerald-700 dark:text-emerald-300">Nenhuma ordem concluída.</div>
                     ) : (
-                      completedOrders.map((order) => (
-                        <div key={order.id} className={`grid grid-cols-[1fr,auto] items-center gap-2 px-3 py-3 text-sm ${selectedOrder?.id === order.id ? 'bg-emerald-100/70 dark:bg-emerald-900/20' : 'bg-transparent'}`}>
-                          <button type="button" onClick={() => { setSelectedId(order.id); setShowForm(false); setShowDeleteConfirm(false); }} className="text-left">
-                            <div className="flex items-center gap-2">
-                              <span className="truncate text-gray-900 dark:text-gray-100">{order.client}</span>
-                              {order.paymentMethod && (
-                                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
-                                  {order.paymentMethod}
-                                </span>
-                              )}
-                            </div>
-                            <p className="mt-1 truncate text-xs text-gray-500 dark:text-gray-400">{order.id} · {order.paymentValue ? `R$ ${Number(order.paymentValue).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'Pagamento pendente'}</p>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setPaymentTarget(order);
-                              setPaymentDraft({
-                                method: order.paymentMethod || 'Dinheiro',
-                                value: order.paymentValue ? String(order.paymentValue) : String(order.serviceValue).replace(/[R$]/g, '').trim(),
-                              });
-                              setShowPaymentModal(true);
-                            }}
-                            className="rounded-lg bg-emerald-600 px-2.5 py-2 text-[11px] font-semibold text-white hover:bg-emerald-700"
-                          >
-                            Adicionar pagamento
-                          </button>
-                        </div>
-                      ))
+                      completedOrders.map((order) => {
+                        const hasPaymentInfo = Boolean(order.paymentMethod || typeof order.paymentReceived === 'number' || typeof order.paymentSpent === 'number');
+                        const visualState = getOrderVisualState(order);
+
+                        return (
+                          <div key={order.id} className={`grid grid-cols-[1fr,auto] items-center gap-2 px-3 py-3 text-sm ${selectedOrder?.id === order.id ? 'bg-slate-100/80 dark:bg-slate-800/40' : 'bg-transparent'}`}>
+                            <button type="button" onClick={() => { setSelectedId(order.id); setShowForm(false); setShowDeleteConfirm(false); }} className="text-left">
+                              <div className="flex items-center gap-2">
+                                <span className="truncate text-gray-900 dark:text-gray-100">{order.client}</span>
+                                {hasPaymentInfo && (
+                                  <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-medium text-slate-700 dark:bg-slate-700 dark:text-slate-200">
+                                    {order.paymentMethod}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="mt-1 truncate text-xs text-gray-500 dark:text-gray-400">
+                                {order.id} · {hasPaymentInfo ? `Recebido: R$ ${Number(order.paymentReceived ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} · Gasto: R$ ${Number(order.paymentSpent ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'Pagamento pendente'}
+                              </p>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setPaymentTarget(order);
+                                setPaymentDraft({
+                                  method: order.paymentMethod || 'Dinheiro',
+                                  received: order.paymentReceived !== undefined ? String(order.paymentReceived) : '',
+                                  spent: order.paymentSpent !== undefined ? String(order.paymentSpent) : '',
+                                });
+                                setShowPaymentModal(true);
+                              }}
+                              className={`rounded-lg px-2.5 py-2 text-[11px] font-semibold ${hasPaymentInfo ? 'bg-slate-700 text-white hover:bg-slate-800' : 'bg-emerald-600 text-white hover:bg-emerald-700'}`}
+                            >
+                              {hasPaymentInfo ? 'Editar forma de pagamento' : 'Adicionar pagamento'}
+                            </button>
+                          </div>
+                        );
+                      })
                     )}
                   </div>
                 </div>
@@ -699,20 +726,34 @@ return (
                   </select>
                 </label>
 
-                <label className="block">
-                  <span className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-200">Valor investido na ordem</span>
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    value={paymentDraft.value}
-                    onChange={(event) => setPaymentDraft((current) => ({ ...current, value: event.target.value }))}
-                    placeholder="Ex: 280,00"
-                    className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-violet-400 dark:border-gray-700 dark:bg-gray-800"
-                  />
-                </label>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <label className="block">
+                    <span className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-200">Valor recebido</span>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={paymentDraft.received}
+                      onChange={(event) => setPaymentDraft((current) => ({ ...current, received: event.target.value }))}
+                      placeholder="Ex: 280,00"
+                      className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-violet-400 dark:border-gray-700 dark:bg-gray-800"
+                    />
+                  </label>
+
+                  <label className="block">
+                    <span className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-200">Valor gasto</span>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={paymentDraft.spent}
+                      onChange={(event) => setPaymentDraft((current) => ({ ...current, spent: event.target.value }))}
+                      placeholder="Ex: 180,00"
+                      className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-violet-400 dark:border-gray-700 dark:bg-gray-800"
+                    />
+                  </label>
+                </div>
 
                 <div className="flex gap-2 pt-2">
-                  <Button variant="secondary" onClick={() => { setShowPaymentModal(false); setPaymentTarget(null); setPaymentDraft({ method: 'Dinheiro', value: '' }); }}>Cancelar</Button>
+                  <Button variant="secondary" onClick={() => { setShowPaymentModal(false); setPaymentTarget(null); setPaymentDraft({ method: 'Dinheiro', received: '', spent: '' }); }}>Cancelar</Button>
                   <Button onClick={handleRegisterPayment}>Salvar pagamento</Button>
                 </div>
               </div>
