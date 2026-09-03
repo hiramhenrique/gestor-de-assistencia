@@ -33,8 +33,12 @@ function getUserCollectionRef(userId: string, name: UserCollectionName) {
 
 export async function loadUserCollection<T extends { id: string }>(userId: string, name: UserCollectionName): Promise<T[]> {
   if (!userId) return [];
+
   const snapshot = await getDocs(getUserCollectionRef(userId, name));
-  return snapshot.docs.map((item) => ({ ...(item.data() as T) }));
+  return snapshot.docs.map((item) => ({
+    ...(item.data() as T),
+    id: item.id,
+  }));
 }
 
 export async function saveUserCollection<T extends { id: string }>(userId: string, name: UserCollectionName, items: T[]) {
@@ -55,11 +59,3 @@ export async function saveUserCollection<T extends { id: string }>(userId: strin
   await Promise.all(staleDocs.map((item) => deleteDoc(doc(ref, item.id))));
 }
 
-export async function clearUserCollections(userId: string) {
-  if (!userId) return;
-  await Promise.all((Object.keys(COLLECTION_DEFAULTS) as UserCollectionName[]).map(async (name) => {
-    const ref = getUserCollectionRef(userId, name);
-    const snapshot = await getDocs(ref);
-    await Promise.all(snapshot.docs.map((item) => deleteDoc(doc(ref, item.id))));
-  }));
-}
