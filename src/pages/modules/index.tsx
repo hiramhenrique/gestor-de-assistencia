@@ -939,12 +939,318 @@ export function VendasPage() {
 }
 
 export function FluxoCaixaPage() {
-  return <PlaceholderPage
-    title="Fluxo de Caixa"
-    description="Controle financeiro completo: entradas, saídas, saldo e relatórios por período."
-    icon={<Wallet className="w-9 h-9 text-emerald-600 dark:text-emerald-400" />}
-    color="bg-emerald-100 dark:bg-emerald-900/30"
-  />;
+  const { user } = useAuth();
+  const [orders, setOrders] = useState<ServiceOrder[]>([]);
+  const [sales, setSales] = useState<Array<{
+    id: string;
+    createdAt: string;
+    total: number;
+    discount: number;
+    paymentMethod: string;
+    items: Array<{ id: string; name: string; quantity: number; unitPrice: number }>;
+  }>>([]);
+  const [manualExpenses, setManualExpenses] = useState<Array<{ id: string; label: string; value: number; type: 'Garantia' | 'Prejuízo' | 'Outros' }>>([
+    { id: 'garantia-default', label: 'Garantia', value: 0, type: 'Garantia' },
+    { id: 'prejuizo-default', label: 'Prejuízo', value: 0, type: 'Prejuízo' },
+  ]);
+  const [expenseLabel, setExpenseLabel] = useState('');
+  const [expenseValue, setExpenseValue] = useState('');
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    Promise.all([
+      loadOrders(user.id),
+      loadUserCollection<{ id: string; createdAt: string; total: number; discount: number; paymentMethod: string; items: Array<{ id: string; name: string; quantity: number; unitPrice: number }> }>(user.id, 'vendas'),
+    ]).then(([nextOrders, nextSales]) => {
+      setOrders(nextOrders);
+      setSales(nextSales.map((sale) => ({
+        ...sale,
+        total: Number(sale.total) || 0,
+        discount: Number(sale.discount) || 0,
+      })));
+    });
+  }, [user?.id]);
+
+  const formatCurrency = (value: number) => new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  }).format(value);
+
+  const parseMonetaryValue = (value: string | number | undefined) => {
+    if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+    if (!value) return 0;
+
+    const sanitized = String(value).replace(/[R$\s.]/g, '').replace(',', '.');
+    const parsed = Number(sanitized);
+    return Number.isFinite(parsed) ? parsed : 0;
+  };
+
+  const serviceRevenue = useMemo(
+    () => orders.reduce((sum, order) => sum + parseMonetaryValue(order.serviceValue), 0),
+    [orders],
+  );
+
+  const salesRevenue = useMemo(
+    () => sales.reduce((sum, sale) => sum + sale.total, 0),
+    [sales],
+  );
+
+  const totalEntries = salesRevenue + serviceRevenue;
+  const totalDiscounts = sales.reduce((sum, sale) => sum + (sale.discount || 0), 0);
+  const totalExpenses = manualExpenses.reduce((sum, expense) => sum + expense.value, 0);
+  const netProfit = totalEntries - totalExpenses - totalDiscounts;
+
+  const paymentBreakdown = useMemo(() => {
+    const labels = ['Dinheiro', 'Pix', 'Cartão', 'Transferência'];
+    return labels.map((label) => {
+      const value = sales
+        .filter((sale) => sale.paymentMethod === label)
+        .reduce((sum, sale) => sum + sale.total, 0);
+
+      return { label, value };
+    });
+  }, [sales]);
+
+  const maxPaymentValue = Math.max(...paymentBreakdown.map((item) => item.value), 1);
+
+  const revenueSources = useMemo(() => [
+    { label: 'Vendas', value: salesRevenue },
+    { label: 'Serviços', value: serviceRevenue },
+  ], [salesRevenue, serviceRevenue]);
+
+  const maxRevenueSource = Math.max(...revenueSources.map((item) => item.value), 1);
+
+  const recentMovements = useMemo(() => {
+    const salesMovements = sales.map((sale) => ({
+      id: sale.id,
+      label: `Venda · ${sale.items.length} item(ns)`,
+      value: sale.total,
+      date: sale.createdAt,
+      type: 'Entrada' as const,
+    }));
+
+    const serviceMovements = orders.map((order) => ({
+      id: order.id,
+      label: `${order.client} · ${order.device}`,
+      value: parseMonetaryValue(order.serviceValue),
+      date: order.createdAt,
+      type: 'Serviço' as const,
+    }));
+
+    return [...salesMovements, ...serviceMovements]
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, 8);
+  }, [orders, sales]);
+
+  const addExpense = () => {
+    const label = expenseLabel.trim();
+    const value = Number(expenseValue.replace(',', '.'));
+    if (!label || !Number.isFinite(value) || value <= 0) return;
+
+    setManualExpenses((current) => [
+      { id: crypto.randomUUID(), label, value, type: 'Outros' },
+      ...current,
+    ]);
+    setExpenseLabel('');
+    setExpenseValue('');
+  };
+
+  return (
+    <div className="space-y-5">
+      <div className="rounded-2xl border border-emerald-100 bg-white p-4 shadow-sm dark:border-emerald-900/40 dark:bg-gray-900">
+        <div className="flex items-center gap-3">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+            <Wallet className="h-5 w-5" />
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-600 dark:text-emerald-400">Fluxo de Caixa</p>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Financeiro da empresa</h2>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-4 shadow-sm dark:border-emerald-800 dark:from-emerald-950/40 dark:to-gray-900">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700 dark:text-emerald-300">Entradas</p>
+          <p className="mt-3 text-2xl font-bold text-gray-900 dark:text-gray-100">{formatCurrency(totalEntries)}</p>
+          <p className="mt-2 text-xs text-emerald-700 dark:text-emerald-300">Vendas + serviços</p>
+        </div>
+
+        <div className="rounded-2xl border border-red-200 bg-gradient-to-br from-red-50 to-white p-4 shadow-sm dark:border-red-800 dark:from-red-950/40 dark:to-gray-900">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-red-700 dark:text-red-300">Saídas</p>
+          <p className="mt-3 text-2xl font-bold text-gray-900 dark:text-gray-100">{formatCurrency(totalExpenses + totalDiscounts)}</p>
+          <p className="mt-2 text-xs text-red-700 dark:text-red-300">Garantias, prejuízos e descontos</p>
+        </div>
+
+        <div className="rounded-2xl border border-violet-200 bg-gradient-to-br from-violet-50 to-white p-4 shadow-sm dark:border-violet-800 dark:from-violet-950/40 dark:to-gray-900">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-violet-700 dark:text-violet-300">Lucro líquido</p>
+          <p className="mt-3 text-2xl font-bold text-gray-900 dark:text-gray-100">{formatCurrency(netProfit)}</p>
+          <p className="mt-2 text-xs text-violet-700 dark:text-violet-300">Resultado atual do negócio</p>
+        </div>
+
+        <div className="rounded-2xl border border-cyan-200 bg-gradient-to-br from-cyan-50 to-white p-4 shadow-sm dark:border-cyan-800 dark:from-cyan-950/40 dark:to-gray-900">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-700 dark:text-cyan-300">Vendas</p>
+          <p className="mt-3 text-2xl font-bold text-gray-900 dark:text-gray-100">{formatCurrency(salesRevenue)}</p>
+          <p className="mt-2 text-xs text-cyan-700 dark:text-cyan-300">Total em vendas concluidas</p>
+        </div>
+      </div>
+
+      <div className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="text-base font-bold text-gray-900 dark:text-gray-100">Lucro por origem</h3>
+            <span className="text-xs uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400">Tempo real</span>
+          </div>
+
+          <div className="space-y-4">
+            {revenueSources.map((source) => (
+              <div key={source.label}>
+                <div className="mb-1 flex items-center justify-between text-sm text-gray-600 dark:text-gray-300">
+                  <span>{source.label}</span>
+                  <span className="font-semibold text-gray-900 dark:text-gray-100">{formatCurrency(source.value)}</span>
+                </div>
+                <div className="h-3 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+                  <div
+                    className={`h-full rounded-full ${source.label === 'Vendas' ? 'bg-emerald-500' : 'bg-violet-500'}`}
+                    style={{ width: `${(source.value / maxRevenueSource) * 100}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="text-base font-bold text-gray-900 dark:text-gray-100">Formas de pagamento</h3>
+            <span className="text-xs uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400">Vendas</span>
+          </div>
+
+          <div className="space-y-3">
+            {paymentBreakdown.map((entry) => (
+              <div key={entry.label}>
+                <div className="mb-1 flex items-center justify-between text-sm text-gray-600 dark:text-gray-300">
+                  <span>{entry.label}</span>
+                  <span className="font-semibold text-gray-900 dark:text-gray-100">{formatCurrency(entry.value)}</span>
+                </div>
+                <div className="h-2.5 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-green-600"
+                    style={{ width: `${(entry.value / maxPaymentValue) * 100}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="text-base font-bold text-gray-900 dark:text-gray-100">Entradas e saídas</h3>
+            <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
+              Atualização em tempo real
+            </span>
+          </div>
+
+          <div className="space-y-3">
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-800 dark:bg-emerald-950/20">
+              <div className="flex items-center justify-between text-sm text-emerald-800 dark:text-emerald-300">
+                <span>Entradas totais</span>
+                <span className="font-bold">{formatCurrency(totalEntries)}</span>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-red-200 bg-red-50 p-3 dark:border-red-800 dark:bg-red-950/20">
+              <div className="flex items-center justify-between text-sm text-red-800 dark:text-red-300">
+                <span>Descontos e perdas</span>
+                <span className="font-bold">{formatCurrency(totalExpenses + totalDiscounts)}</span>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-violet-200 bg-violet-50 p-3 dark:border-violet-800 dark:bg-violet-950/20">
+              <div className="flex items-center justify-between text-sm text-violet-800 dark:text-violet-300">
+                <span>Lucro líquido</span>
+                <span className="font-bold">{formatCurrency(netProfit)}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="text-base font-bold text-gray-900 dark:text-gray-100">Perdas / garantias</h3>
+            <span className="text-xs uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400">Saídas</span>
+          </div>
+
+          <div className="space-y-3">
+            {manualExpenses.map((expense) => (
+              <div key={expense.id} className="flex items-center justify-between rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 dark:border-gray-700 dark:bg-gray-800/60">
+                <div>
+                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{expense.label}</p>
+                  <p className="text-[11px] uppercase tracking-[0.15em] text-gray-500 dark:text-gray-400">{expense.type}</p>
+                </div>
+                <span className="text-sm font-bold text-red-600 dark:text-red-400">-{formatCurrency(expense.value)}</span>
+              </div>
+            ))}
+            <div className="space-y-2 rounded-xl border border-dashed border-gray-300 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800/60">
+              <input
+                value={expenseLabel}
+                onChange={(event) => setExpenseLabel(event.target.value)}
+                placeholder="Nome da perda / garantia"
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-emerald-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+              />
+              <div className="flex gap-2">
+                <input
+                  value={expenseValue}
+                  onChange={(event) => setExpenseValue(event.target.value.replace(/[^0-9,.-]/g, ''))}
+                  placeholder="Valor"
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-emerald-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+                />
+                <button
+                  type="button"
+                  onClick={addExpense}
+                  className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+                >
+                  Add
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-base font-bold text-gray-900 dark:text-gray-100">Movimentações recentes</h3>
+          <span className="text-xs uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400">Últimos registros</span>
+        </div>
+
+        <div className="space-y-2">
+          {recentMovements.length === 0 ? (
+            <p className="text-sm text-gray-500 dark:text-gray-400">Ainda não há movimentações no caixa.</p>
+          ) : (
+            recentMovements.map((movement) => (
+              <div key={`${movement.type}-${movement.id}`} className="flex items-center justify-between rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 dark:border-gray-700 dark:bg-gray-800/60">
+                <div>
+                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{movement.label}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{new Date(movement.date).toLocaleString('pt-BR')}</p>
+                </div>
+                <div className="text-right">
+                  <p className={`text-sm font-bold ${movement.type === 'Entrada' ? 'text-emerald-600 dark:text-emerald-400' : 'text-violet-600 dark:text-violet-400'}`}>
+                    {movement.type === 'Entrada' ? '+' : ''}{formatCurrency(movement.value)}
+                  </p>
+                  <p className="text-[10px] uppercase tracking-[0.15em] text-gray-500 dark:text-gray-400">{movement.type}</p>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export function AcompanhamentoPage() {
