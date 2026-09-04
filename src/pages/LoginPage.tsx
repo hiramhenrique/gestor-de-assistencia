@@ -26,7 +26,7 @@ export default function LoginPage({ onNavigateToRegister }: LoginPageProps) {
     handleSubmit,
     formState: { errors },
   } = useForm<LoginFormData>({
-    defaultValues: { rememberMe: false },
+    defaultValues: { rememberMe: true },
   });
 
   const onSubmit = async (data: LoginFormData) => {

@@ -51,9 +51,9 @@ export async function saveUserCollection<T extends { id: string }>(userId: strin
   const snapshot = await getDocs(ref);
   const nextIds = new Set(items.map((item) => item.id).filter(Boolean));
 
-  if (items.length === 0) return;
-
-  await Promise.all(items.map((item) => setDoc(doc(ref, item.id), item)));
+  if (items.length > 0) {
+    await Promise.all(items.map((item) => setDoc(doc(ref, item.id), item)));
+  }
 
   const staleDocs = snapshot.docs.filter((item) => !nextIds.has(item.id));
   await Promise.all(staleDocs.map((item) => deleteDoc(doc(ref, item.id))));

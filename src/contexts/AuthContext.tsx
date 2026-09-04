@@ -4,7 +4,8 @@ import {
   createUserWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
-  inMemoryPersistence,
+  browserLocalPersistence,
+  browserSessionPersistence,
   setPersistence,
   type User as FirebaseUser,
 } from 'firebase/auth';
@@ -84,10 +85,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
-    void setPersistence(auth, inMemoryPersistence);
-  }, []);
-
-  useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (!firebaseUser) {
         setUser(null);
@@ -102,8 +99,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (email: string, password: string, remember: boolean) => {
-    void remember;
     try {
+      await setPersistence(auth, remember ? browserLocalPersistence : browserSessionPersistence);
       const cred = await signInWithEmailAndPassword(auth, email, password);
       const safeUser = await syncUserProfile(cred.user);
       setUser(safeUser);
