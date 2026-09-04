@@ -1,16 +1,4 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
-import {
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  signOut,
-  onAuthStateChanged,
-  browserLocalPersistence,
-  browserSessionPersistence,
-  setPersistence,
-  type User as FirebaseUser,
-} from 'firebase/auth';
-import { collection, doc, getDoc, getDocs, limit, query, setDoc, where } from 'firebase/firestore';
-import { auth, db } from '../lib/firebase';
 import type { User, RegisterFormData } from '../types/auth';
 
 interface AuthContextType {
@@ -22,6 +10,13 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
+
+interface StoredUser extends User {
+  password: string;
+}
+
+const USERS_KEY = 'at_users';
+const SESSION_KEY = 'at_session';
 
 function getAuthErrorCode(error: unknown): string {
   if (typeof error === 'object' && error !== null && 'code' in error) {
@@ -39,144 +34,138 @@ function getAuthErrorMessage(error: unknown): string {
   return '';
 }
 
-async function syncUserProfile(firebaseUser: FirebaseUser, fallback?: Partial<User>): Promise<User> {
-  const docRef = doc(db, 'users', firebaseUser.uid);
-  const snap = await getDoc(docRef);
-  const existing = snap.exists() ? (snap.data() as Partial<User>) : undefined;
-
-  const profile: User = {
-    id: firebaseUser.uid,
-    fullName: fallback?.fullName || existing?.fullName || firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Usuário',
-    email: firebaseUser.email || existing?.email || '',
-    cpf: fallback?.cpf || existing?.cpf || '',
-    phone: fallback?.phone || existing?.phone || '',
-    createdAt: fallback?.createdAt || existing?.createdAt || new Date().toISOString(),
-  };
-
-  if (!snap.exists()) {
-    await setDoc(docRef, profile);
+function readStoredUsers(): StoredUser[] {
+  try {
+    const raw = localStorage.getItem(USERS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed as StoredUser[] : [];
+  } catch {
+    return [];
   }
-
-  return profile;
 }
 
-async function hasCpfRegistered(cpf: string): Promise<boolean> {
-  if (!cpf) return false;
-  try {
-    const usersRef = collection(db, 'users');
-    const cpfQuery = query(usersRef, where('cpf', '==', cpf), limit(1));
-    const snapshot = await getDocs(cpfQuery);
-    return !snapshot.empty;
-  } catch (error: unknown) {
-    const code = getAuthErrorCode(error);
+function writeStoredUsers(users: StoredUser[]) {
+  localStorage.setItem(USERS_KEY, JSON.stringify(users));
+}
 
-    // Em produção, as regras podem bloquear leitura global de users.
-    // Nesse caso, não impedimos o cadastro do usuário autenticável.
-    if (code === 'permission-denied' || code === 'auth/permission-denied') {
-      console.warn('Leitura global de CPF bloqueada pelas regras do Firestore. Seguindo cadastro sem validação global.', error);
-      return false;
-    }
+function readSessionUserId(): string | null {
+  const localSession = localStorage.getItem(SESSION_KEY);
+  if (localSession) return localSession;
+  return sessionStorage.getItem(SESSION_KEY);
+}
 
-    throw error;
+function writeSessionUserId(userId: string, remember: boolean) {
+  sessionStorage.removeItem(SESSION_KEY);
+  localStorage.removeItem(SESSION_KEY);
+  if (remember) {
+    localStorage.setItem(SESSION_KEY, userId);
+    return;
   }
+  sessionStorage.setItem(SESSION_KEY, userId);
+}
+
+function clearSessionUserId() {
+  localStorage.removeItem(SESSION_KEY);
+  sessionStorage.removeItem(SESSION_KEY);
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (!firebaseUser) {
-        setUser(null);
-        return;
-      }
+    const sessionUserId = readSessionUserId();
+    if (!sessionUserId) {
+      setUser(null);
+      return;
+    }
 
-      const mappedUser = await syncUserProfile(firebaseUser);
-      setUser(mappedUser);
-    });
+    const users = readStoredUsers();
+    const currentUser = users.find((item) => item.id === sessionUserId);
+    if (!currentUser) {
+      clearSessionUserId();
+      setUser(null);
+      return;
+    }
 
-    return () => unsubscribe();
+    const { password: _password, ...safeUser } = currentUser;
+    void _password;
+    setUser(safeUser);
   }, []);
 
   const login = async (email: string, password: string, remember: boolean) => {
     try {
-      await setPersistence(auth, remember ? browserLocalPersistence : browserSessionPersistence);
-      const cred = await signInWithEmailAndPassword(auth, email, password);
-      const safeUser = await syncUserProfile(cred.user);
+      const users = readStoredUsers();
+      const normalizedEmail = email.trim().toLowerCase();
+      const found = users.find((item) => item.email.trim().toLowerCase() === normalizedEmail && item.password === password);
+
+      if (!found) {
+        throw new Error('E-mail ou senha inválidos.');
+      }
+
+      writeSessionUserId(found.id, remember);
+      const { password: _password, ...safeUser } = found;
+      void _password;
       setUser(safeUser);
       return;
     } catch (error: unknown) {
       const code = getAuthErrorCode(error);
       const rawMessage = getAuthErrorMessage(error);
 
-      if (code === 'auth/invalid-credential' || code === 'auth/user-not-found' || code === 'auth/wrong-password') {
-        throw new Error('E-mail ou senha inválidos.');
-      }
-      if (code === 'auth/operation-not-allowed') {
-        throw new Error('Login com e-mail/senha está desativado no Firebase. Ative em Authentication > Sign-in method.');
-      }
-      if (code === 'auth/invalid-api-key') {
-        throw new Error('Configuração Firebase inválida no ambiente. Verifique as variáveis VITE_FIREBASE_* no Vercel.');
-      }
-      if (code === 'auth/too-many-requests') {
-        throw new Error('Muitas tentativas de login. Aguarde alguns minutos e tente novamente.');
+      if (error instanceof Error && error.message) {
+        throw error;
       }
 
-      console.error('Erro de login Firebase:', { code, rawMessage, error });
+      console.error('Erro de login local:', { code, rawMessage, error });
       throw new Error(code ? `Não foi possível entrar (${code}).` : 'Não foi possível entrar. Tente novamente.');
     }
   };
 
   const register = async (data: RegisterFormData) => {
-    const sanitizedCpf = data.cpf.replace(/\D/g, '');
-    const cpfExists = await hasCpfRegistered(sanitizedCpf);
-    if (cpfExists) {
-      throw new Error('Este CPF já está cadastrado.');
-    }
-
     try {
-      const cred = await createUserWithEmailAndPassword(auth, data.email, data.password);
-      const profile: User = {
-        id: cred.user.uid,
+      const users = readStoredUsers();
+      const sanitizedCpf = data.cpf.replace(/\D/g, '');
+      const normalizedEmail = data.email.trim().toLowerCase();
+
+      if (users.some((item) => item.email.trim().toLowerCase() === normalizedEmail)) {
+        throw new Error('Este e-mail já está cadastrado.');
+      }
+
+      if (users.some((item) => item.cpf === sanitizedCpf)) {
+        throw new Error('Este CPF já está cadastrado.');
+      }
+
+      const profile: StoredUser = {
+        id: crypto.randomUUID(),
         fullName: data.fullName,
-        email: data.email,
+        email: normalizedEmail,
         cpf: sanitizedCpf,
         phone: data.phone,
         createdAt: new Date().toISOString(),
+        password: data.password,
       };
-      await setDoc(doc(db, 'users', cred.user.uid), profile);
-      setUser(profile);
+
+      writeStoredUsers([profile, ...users]);
+      writeSessionUserId(profile.id, true);
+
+      const { password: _password, ...safeUser } = profile;
+      void _password;
+      setUser(safeUser);
       return;
     } catch (error: unknown) {
       const code = getAuthErrorCode(error);
-      if (code === 'auth/email-already-in-use') {
-        throw new Error('Este e-mail já está cadastrado.');
-      }
-      if (code === 'permission-denied' || code === 'auth/permission-denied') {
-        throw new Error('Permissões do Firestore bloquearam o cadastro. Revise as regras de security para a coleção users.');
-      }
-      if (code === 'auth/operation-not-allowed') {
-        throw new Error('Cadastro por e-mail/senha está desativado no Firebase. Ative em Authentication > Sign-in method.');
-      }
-      if (code === 'auth/invalid-api-key') {
-        throw new Error('Configuração Firebase inválida no ambiente. Verifique as variáveis VITE_FIREBASE_* no Vercel.');
-      }
-      if (code === 'auth/weak-password') {
-        throw new Error('A senha é muito fraca. Use pelo menos 6 caracteres.');
+      if (error instanceof Error && error.message) {
+        throw error;
       }
 
       const rawMessage = getAuthErrorMessage(error);
-      console.error('Erro de cadastro Firebase:', { code, rawMessage, error });
+      console.error('Erro de cadastro local:', { code, rawMessage, error });
       throw new Error(code ? `Não foi possível cadastrar (${code}).` : 'Não foi possível cadastrar. Tente novamente.');
     }
   };
 
   const logout = async () => {
-    try {
-      await signOut(auth);
-    } catch {
-      // ignore
-    }
+    clearSessionUserId();
     setUser(null);
   };
 

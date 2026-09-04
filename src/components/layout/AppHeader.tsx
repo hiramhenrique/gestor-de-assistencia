@@ -4,6 +4,7 @@ import type { ModuleId } from '../../types/app';
 
 const PAGE_TITLES: Record<ModuleId, string> = {
   dashboard:      'Dashboard',
+  backup:         'Backup Local',
   ordens:         'Ordens de Serviço',
   formularios:    'Formulários',
   clientes:       'Clientes',

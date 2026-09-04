@@ -9,6 +9,7 @@ import {
   ShoppingCart,
   Wallet,
   Activity,
+  Database,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
@@ -25,6 +26,7 @@ interface SidebarProps {
 
 const NAV_ITEMS: { id: ModuleId; label: string; icon: React.ReactNode; badge?: number }[] = [
   { id: 'dashboard',      label: 'Dashboard',            icon: <LayoutDashboard className="w-5 h-5" /> },
+  { id: 'backup',         label: 'Backup',               icon: <Database        className="w-5 h-5" /> },
   { id: 'ordens',         label: 'Ordens de Serviço',    icon: <ClipboardList    className="w-5 h-5" /> },
   { id: 'formularios',    label: 'Formulários',          icon: <Printer          className="w-5 h-5" /> },
   { id: 'acompanhamento', label: 'Acompanhamento',        icon: <Activity         className="w-5 h-5" /> },

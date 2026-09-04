@@ -5,7 +5,7 @@ import Sidebar from '../components/layout/Sidebar';
 import AppHeader from '../components/layout/AppHeader';
 import HomePage from './modules/HomePage';
 import {
-  OrdensPage, ClientesPage, FuncionariosPage, EstoquePage, OrcamentosPage,
+  BackupPage, OrdensPage, ClientesPage, FuncionariosPage, EstoquePage, OrcamentosPage,
   VendasPage, FluxoCaixaPage, AcompanhamentoPage,
 } from './modules';
 import { FormulariosPage } from './modules';
@@ -19,6 +19,7 @@ export default function DashboardPage() {
 
   function renderPage() {
     switch (active) {
+      case 'backup':       return <BackupPage />;
       case 'formularios':   return <FormulariosPage />;
       case 'ordens':         return <OrdensPage onNavigate={setActive} />;
       case 'clientes':       return <ClientesPage />;

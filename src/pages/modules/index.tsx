@@ -7,6 +7,7 @@ import ClientesPageComponent from './ClientesPage';
 import FuncionariosPageComponent from './FuncionariosPage';
 import FormulariosPageComponent from './FormulariosPage';
 import OrcamentosPageComponent from './OrcamentosPage';
+import BackupPageComponent from './BackupPage';
 import { useAuth } from '../../contexts/AuthContext';
 import { loadOrders, saveOrders, type OrderStatus, type ServiceOrder } from './ordersData';
 import { buildPublicStatusUrl, savePublicStatus } from './publicStatus';
@@ -48,6 +49,10 @@ export function ClientesPage() {
 
 export function FuncionariosPage() {
   return <FuncionariosPageComponent />;
+}
+
+export function BackupPage() {
+  return <BackupPageComponent />;
 }
 
 export function EstoquePage() {

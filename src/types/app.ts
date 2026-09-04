@@ -1,5 +1,6 @@
 export type ModuleId =
   | 'dashboard'
+  | 'backup'
   | 'ordens'
   | 'formularios'
   | 'clientes'
