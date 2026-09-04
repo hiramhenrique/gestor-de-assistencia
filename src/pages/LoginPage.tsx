@@ -21,6 +21,19 @@ export default function LoginPage({ onNavigateToRegister }: LoginPageProps) {
   const [loading, setLoading] = useState(false);
   const [forgotOpen, setForgotOpen] = useState(false);
 
+  const clearLocalData = () => {
+    const confirmed = window.confirm('Isso apagará todos os dados locais cadastrados neste navegador. Deseja continuar?');
+    if (!confirmed) return;
+
+    const localKeys = Object.keys(localStorage).filter((key) => key.startsWith('at_') || key.startsWith('at_data:'));
+    const sessionKeys = Object.keys(sessionStorage).filter((key) => key.startsWith('at_') || key.startsWith('at_data:'));
+
+    localKeys.forEach((key) => localStorage.removeItem(key));
+    sessionKeys.forEach((key) => sessionStorage.removeItem(key));
+
+    setServerError('Dados locais removidos. Você já pode começar os testes do zero.');
+  };
+
   const {
     register,
     handleSubmit,
@@ -135,6 +148,14 @@ export default function LoginPage({ onNavigateToRegister }: LoginPageProps) {
                 Cadastre-se grátis
               </button>
             </p>
+
+            <button
+              type="button"
+              onClick={clearLocalData}
+              className="mt-3 text-xs text-red-600 dark:text-red-400 hover:underline"
+            >
+              Limpar dados locais para teste
+            </button>
           </div>
         </div>
       </div>
