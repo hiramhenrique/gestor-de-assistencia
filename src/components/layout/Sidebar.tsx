@@ -26,7 +26,6 @@ interface SidebarProps {
 
 const NAV_ITEMS: { id: ModuleId; label: string; icon: React.ReactNode; badge?: number }[] = [
   { id: 'dashboard',      label: 'Dashboard',            icon: <LayoutDashboard className="w-5 h-5" /> },
-  { id: 'backup',         label: 'Backup',               icon: <Database        className="w-5 h-5" /> },
   { id: 'ordens',         label: 'Ordens de Serviço',    icon: <ClipboardList    className="w-5 h-5" /> },
   { id: 'formularios',    label: 'Formulários',          icon: <Printer          className="w-5 h-5" /> },
   { id: 'acompanhamento', label: 'Acompanhamento',        icon: <Activity         className="w-5 h-5" /> },
@@ -36,6 +35,7 @@ const NAV_ITEMS: { id: ModuleId; label: string; icon: React.ReactNode; badge?: n
   { id: 'vendas',         label: 'Vendas',                icon: <ShoppingCart     className="w-5 h-5" /> },
   { id: 'estoque',        label: 'Estoque',               icon: <Package          className="w-5 h-5" /> },
   { id: 'fluxo-caixa',    label: 'Fluxo de Caixa',       icon: <Wallet           className="w-5 h-5" /> },
+  { id: 'backup',         label: 'Backup',               icon: <Database        className="w-5 h-5" /> },
 ];
 
 export default function Sidebar({ active, onNavigate, collapsed, onToggleCollapse }: SidebarProps) {
