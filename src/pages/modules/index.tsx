@@ -1378,7 +1378,9 @@ export function AcompanhamentoPage() {
     `Olá ${order.client}!\nAcompanhe o andamento do seu aparelho ${order.device} aqui:\n${shareUrl}`;
 
   const updateStatus = async (orderId: string, nextStatus: OrderStatus) => {
-    const updated = orders.map((order) => order.id === orderId ? { ...order, status: nextStatus } : order);
+    const updated = orders.map((order) => order.id === orderId
+      ? { ...order, status: nextStatus, publicStatusId: order.publicStatusId || crypto.randomUUID() }
+      : order);
     setOrders(updated);
     await saveOrders(user?.id, updated);
 
@@ -1387,13 +1389,14 @@ export function AcompanhamentoPage() {
 
     try {
       await savePublicStatus({
+        statusId: target.publicStatusId || target.id,
         orderId: target.id,
         client: target.client,
         device: target.device,
         phone: target.phone,
         status: target.status,
         updatedAt: new Date().toISOString(),
-        shareUrl: buildPublicStatusUrl(target.id),
+        shareUrl: buildPublicStatusUrl(target.publicStatusId || target.id, target.id),
       });
     } catch (error) {
       console.error('Erro ao sincronizar status público:', error);
@@ -1421,17 +1424,28 @@ export function AcompanhamentoPage() {
     setSendingOrderId(order.id);
 
     try {
-      const shareUrl = buildPublicStatusUrl(order.id);
-      const message = buildStatusTrackingMessage(order, shareUrl);
+      const trackedOrder = order.publicStatusId
+        ? order
+        : { ...order, publicStatusId: crypto.randomUUID() };
+
+      if (!order.publicStatusId) {
+        const nextOrders = orders.map((item) => item.id === order.id ? trackedOrder : item);
+        setOrders(nextOrders);
+        await saveOrders(user?.id, nextOrders);
+      }
+
+      const shareUrl = buildPublicStatusUrl(trackedOrder.publicStatusId || trackedOrder.id, trackedOrder.id);
+      const message = buildStatusTrackingMessage(trackedOrder, shareUrl);
       const link = `https://wa.me/${targetPhone}?text=${encodeURIComponent(message)}`;
 
       try {
         await savePublicStatus({
-          orderId: order.id,
-          client: order.client,
-          device: order.device,
-          phone: order.phone,
-          status: order.status,
+          statusId: trackedOrder.publicStatusId || trackedOrder.id,
+          orderId: trackedOrder.id,
+          client: trackedOrder.client,
+          device: trackedOrder.device,
+          phone: trackedOrder.phone,
+          status: trackedOrder.status,
           updatedAt: new Date().toISOString(),
           shareUrl,
         });

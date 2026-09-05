@@ -178,6 +178,7 @@ export default function OrdensPage({ onNavigate }: OrdensPageProps) {
     const selectedEmployee = employees.find((employee) => employee.name.toLowerCase() === draft.technician.trim().toLowerCase());
     const paymentState = getPaymentStateForStatus(draft.status, isEditing ? selectedOrder ?? undefined : undefined);
     const baseOrder: Omit<ServiceOrder, 'id'> = {
+      publicStatusId: isEditing ? selectedOrder?.publicStatusId || crypto.randomUUID() : crypto.randomUUID(),
       client: selectedClient?.name || draft.client || 'Cliente não informado',
       phone: selectedClient?.phone || draft.phone || 'Não informado',
       device: draft.device || 'Dispositivo não informado',
@@ -236,13 +237,14 @@ export default function OrdensPage({ onNavigate }: OrdensPageProps) {
       if (savedOrderId) {
         try {
           await savePublicStatus({
+            statusId: baseOrder.publicStatusId,
             orderId: savedOrderId,
             client: baseOrder.client,
             device: baseOrder.device,
             phone: baseOrder.phone,
             status: baseOrder.status,
             updatedAt: new Date().toISOString(),
-            shareUrl: buildPublicStatusUrl(savedOrderId),
+            shareUrl: buildPublicStatusUrl(baseOrder.publicStatusId || savedOrderId, savedOrderId),
           });
         } catch (statusError) {
           console.error('Erro ao salvar status público da ordem:', statusError);

@@ -4,28 +4,28 @@ import { type OrderStatus } from './ordersData';
 import { type PublicOrderStatusData, statusSequence, subscribeToPublicStatus } from './publicStatus';
 
 interface PublicOrderStatusPageProps {
-  orderId: string;
+  statusId: string;
 }
 
-export default function PublicOrderStatusPage({ orderId }: PublicOrderStatusPageProps) {
+export default function PublicOrderStatusPage({ statusId }: PublicOrderStatusPageProps) {
   const [entry, setEntry] = useState<PublicOrderStatusData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!orderId) {
+    if (!statusId) {
       setEntry(null);
       setIsLoading(false);
       return;
     }
 
     setIsLoading(true);
-    const unsubscribe = subscribeToPublicStatus(orderId, (nextEntry) => {
+    const unsubscribe = subscribeToPublicStatus(statusId, (nextEntry) => {
       setEntry(nextEntry);
       setIsLoading(false);
     });
 
     return () => unsubscribe();
-  }, [orderId]);
+  }, [statusId]);
 
   const activeIndex = useMemo(() => {
     if (!entry) return 0;

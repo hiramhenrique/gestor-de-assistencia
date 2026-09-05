@@ -11,12 +11,13 @@ type View = 'login' | 'register';
 export default function App() {
   const { isAuthenticated } = useAuth();
   const [view, setView] = useState<View>('login');
+  const statusParams = new URLSearchParams(window.location.search);
 
   return (
     <Routes>
       <Route
         path="/status"
-        element={<PublicOrderStatusPage orderId={new URLSearchParams(window.location.search).get('os') ?? ''} />}
+        element={<PublicOrderStatusPage statusId={statusParams.get('track') ?? statusParams.get('os') ?? ''} />}
       />
       <Route
         path="*"

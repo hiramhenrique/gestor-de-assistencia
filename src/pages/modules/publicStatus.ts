@@ -5,6 +5,7 @@ import type { OrderStatus } from './ordersData';
 export const statusSequence: OrderStatus[] = ['Em análise', 'Aguardando aprovação', 'Aguardando peça', 'Em andamento', 'Concluída'];
 
 export interface PublicOrderStatusData {
+  statusId?: string;
   orderId: string;
   client: string;
   device: string;
@@ -16,18 +17,25 @@ export interface PublicOrderStatusData {
 
 const PUBLIC_STATUS_COLLECTION = 'public-status';
 
-export function buildPublicStatusUrl(orderId: string): string {
-  if (typeof window === 'undefined' || !orderId) return '';
+function getPublicStatusDocId(statusId: string) {
+  return statusId;
+}
+
+export function buildPublicStatusUrl(statusId: string, orderId?: string): string {
+  if (typeof window === 'undefined' || !statusId) return '';
   const url = new URL('/status', window.location.origin);
-  url.searchParams.set('os', orderId);
+  url.searchParams.set('track', statusId);
+  if (orderId) {
+    url.searchParams.set('os', orderId);
+  }
   return url.toString();
 }
 
-export async function readPublicStatus(orderId: string): Promise<PublicOrderStatusData | null> {
-  if (!orderId) return null;
+export async function readPublicStatus(statusId: string): Promise<PublicOrderStatusData | null> {
+  if (!statusId) return null;
 
   try {
-    const ref = doc(db, PUBLIC_STATUS_COLLECTION, orderId);
+    const ref = doc(db, PUBLIC_STATUS_COLLECTION, getPublicStatusDocId(statusId));
     const snapshot = await getDoc(ref);
     if (!snapshot.exists()) return null;
 
@@ -38,13 +46,13 @@ export async function readPublicStatus(orderId: string): Promise<PublicOrderStat
   }
 }
 
-export function subscribeToPublicStatus(orderId: string, onChange: (data: PublicOrderStatusData | null) => void) {
-  if (!orderId) {
+export function subscribeToPublicStatus(statusId: string, onChange: (data: PublicOrderStatusData | null) => void) {
+  if (!statusId) {
     onChange(null);
     return () => undefined;
   }
 
-  const ref = doc(db, PUBLIC_STATUS_COLLECTION, orderId);
+  const ref = doc(db, PUBLIC_STATUS_COLLECTION, getPublicStatusDocId(statusId));
   return onSnapshot(ref, (snapshot) => {
     if (!snapshot.exists()) {
       onChange(null);
@@ -59,10 +67,12 @@ export function subscribeToPublicStatus(orderId: string, onChange: (data: Public
 }
 
 export async function savePublicStatus(data: PublicOrderStatusData) {
-  const ref = doc(db, PUBLIC_STATUS_COLLECTION, data.orderId);
+  const docId = getPublicStatusDocId(data.statusId || data.orderId);
+  const ref = doc(db, PUBLIC_STATUS_COLLECTION, docId);
   try {
     await setDoc(ref, {
       ...data,
+      statusId: data.statusId || data.orderId,
       updatedAt: new Date().toISOString(),
     });
   } catch (error) {
@@ -71,9 +81,9 @@ export async function savePublicStatus(data: PublicOrderStatusData) {
   }
 }
 
-export async function removePublicStatus(orderId: string) {
-  if (!orderId) return;
-  const ref = doc(db, PUBLIC_STATUS_COLLECTION, orderId);
+export async function removePublicStatus(statusId: string) {
+  if (!statusId) return;
+  const ref = doc(db, PUBLIC_STATUS_COLLECTION, getPublicStatusDocId(statusId));
   try {
     await deleteDoc(ref);
   } catch (error) {

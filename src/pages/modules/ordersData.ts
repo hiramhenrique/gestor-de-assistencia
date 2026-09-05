@@ -3,6 +3,7 @@ export type OrderPriority = 'Baixa' | 'Média' | 'Alta' | 'Urgente';
 
 export interface ServiceOrder {
   id: string;
+  publicStatusId?: string;
   client: string;
   phone: string;
   device: string;
