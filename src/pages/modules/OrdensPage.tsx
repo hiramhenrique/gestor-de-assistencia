@@ -14,7 +14,7 @@ import Button from '../../components/ui/Button';
 import Modal from '../../components/ui/Modal';
 import type { ModuleId } from '../../types/app';
 import { useAuth } from '../../contexts/AuthContext';
-import { loadOrders, saveOrders, type OrderPriority, type OrderStatus, type ServiceOrder } from './ordersData';
+import { saveOrders, subscribeOrders, type OrderPriority, type OrderStatus, type ServiceOrder } from './ordersData';
 import { loadClients, type ClientRecord } from './clientsData';
 import { loadEmployees, type EmployeeRecord } from './employeesData';
 import { buildPublicStatusUrl, savePublicStatus } from './publicStatus';
@@ -74,12 +74,22 @@ export default function OrdensPage({ onNavigate }: OrdensPageProps) {
 
   useEffect(() => {
     if (!user?.id) return;
-    Promise.all([loadOrders(user.id), loadClients(user.id), loadEmployees(user.id)]).then(([nextOrders, nextClients, nextEmployees]) => {
+    const unsubscribe = subscribeOrders(user.id, (nextOrders) => {
       setOrders(nextOrders);
+      setSelectedId((current) => {
+        if (current && nextOrders.some((order) => order.id === current)) {
+          return current;
+        }
+        return nextOrders[0]?.id ?? null;
+      });
+    });
+
+    Promise.all([loadClients(user.id), loadEmployees(user.id)]).then(([nextClients, nextEmployees]) => {
       setClients(nextClients);
       setEmployees(nextEmployees);
-      setSelectedId((current) => current ?? nextOrders[0]?.id ?? null);
     });
+
+    return unsubscribe;
   }, [user?.id]);
 
   const selectedClientFromDraft = clients.find((client) => client.name.toLowerCase() === draft.client.trim().toLowerCase());

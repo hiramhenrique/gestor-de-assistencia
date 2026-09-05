@@ -9,7 +9,7 @@ import FormulariosPageComponent from './FormulariosPage';
 import OrcamentosPageComponent from './OrcamentosPage';
 import BackupPageComponent from './BackupPage';
 import { useAuth } from '../../contexts/AuthContext';
-import { loadOrders, saveOrders, type OrderStatus, type ServiceOrder } from './ordersData';
+import { loadOrders, saveOrders, subscribeOrders, type OrderStatus, type ServiceOrder } from './ordersData';
 import { buildPublicStatusUrl, savePublicStatus } from './publicStatus';
 import { getWhatsAppTarget } from '../../utils/masks';
 import { loadUserCollection, saveUserCollection } from '../../lib/userData';
@@ -1365,7 +1365,8 @@ export function AcompanhamentoPage() {
 
   useEffect(() => {
     if (!user?.id) return;
-    loadOrders(user.id).then((items) => setOrders(items));
+
+    return subscribeOrders(user.id, (items) => setOrders(items));
   }, [user?.id]);
 
   const pendingOrders = useMemo(
@@ -1379,24 +1380,24 @@ export function AcompanhamentoPage() {
   const updateStatus = async (orderId: string, nextStatus: OrderStatus) => {
     const updated = orders.map((order) => order.id === orderId ? { ...order, status: nextStatus } : order);
     setOrders(updated);
+    await saveOrders(user?.id, updated);
 
     const target = updated.find((order) => order.id === orderId);
-    if (!target) {
-      await saveOrders(user?.id, updated);
-      return;
+    if (!target) return;
+
+    try {
+      await savePublicStatus({
+        orderId: target.id,
+        client: target.client,
+        device: target.device,
+        phone: target.phone,
+        status: target.status,
+        updatedAt: new Date().toISOString(),
+        shareUrl: buildPublicStatusUrl(target.id),
+      });
+    } catch (error) {
+      console.error('Erro ao sincronizar status público:', error);
     }
-
-    await savePublicStatus({
-      orderId: target.id,
-      client: target.client,
-      device: target.device,
-      phone: target.phone,
-      status: target.status,
-      updatedAt: new Date().toISOString(),
-      shareUrl: buildPublicStatusUrl(target.id),
-    });
-
-    await saveOrders(user?.id, updated);
   };
 
   const moveStatus = async (orderId: string, direction: 'prev' | 'next') => {
@@ -1422,21 +1423,23 @@ export function AcompanhamentoPage() {
     try {
       const shareUrl = buildPublicStatusUrl(order.id);
       const message = buildStatusTrackingMessage(order, shareUrl);
-
-      await savePublicStatus({
-        orderId: order.id,
-        client: order.client,
-        device: order.device,
-        phone: order.phone,
-        status: order.status,
-        updatedAt: new Date().toISOString(),
-        shareUrl,
-      });
-
       const link = `https://wa.me/${targetPhone}?text=${encodeURIComponent(message)}`;
+
+      try {
+        await savePublicStatus({
+          orderId: order.id,
+          client: order.client,
+          device: order.device,
+          phone: order.phone,
+          status: order.status,
+          updatedAt: new Date().toISOString(),
+          shareUrl,
+        });
+      } catch (error) {
+        console.error('Erro ao atualizar status público do WhatsApp:', error);
+      }
+
       window.open(link, '_blank', 'noopener,noreferrer');
-    } catch (error) {
-      console.error('Erro ao atualizar status público do WhatsApp:', error);
     } finally {
       setSendingOrderId(null);
     }

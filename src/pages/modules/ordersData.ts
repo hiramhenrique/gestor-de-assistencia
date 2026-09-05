@@ -26,7 +26,7 @@ export interface ServiceOrder {
   technicianId: string;
 }
 
-import { loadUserCollection, saveUserCollection } from '../../lib/userData';
+import { loadUserCollection, saveUserCollection, subscribeUserCollection } from '../../lib/userData';
 
 export const initialOrders: ServiceOrder[] = [];
 
@@ -38,4 +38,8 @@ export async function loadOrders(userId?: string): Promise<ServiceOrder[]> {
 export async function saveOrders(userId: string | undefined, orders: ServiceOrder[]) {
   if (!userId) return;
   return saveUserCollection(userId, 'ordens', orders);
+}
+
+export function subscribeOrders(userId: string, onChange: (orders: ServiceOrder[]) => void) {
+  return subscribeUserCollection<ServiceOrder>(userId, 'ordens', onChange);
 }
